@@ -38,5 +38,6 @@ final class Init {
 		new CartHandler();
 		new OrderFormData();
 		new Download();
+		new Cleanup();
 	}
 }

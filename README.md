@@ -80,20 +80,21 @@ The shopper fills in the fields and adds the product to the cart. Required field
 
 ## How it works (developer perspective)
 
-The plugin is deliberately modular. `OpenForms.php` bootstraps everything: it defines the plugin constants, registers a small PSR-4 style autoloader that maps the `OpenForms\` namespace to the `src/` directory, and instantiates the core `Init` class. `Init` then loads five independent modules.
+The plugin is deliberately modular. `OpenForms.php` bootstraps everything: it defines the plugin constants, registers a small PSR-4 style autoloader that maps the `OpenForms\` namespace to the `src/` directory, and instantiates the core `Init` class. `Init` then loads six independent modules.
 
 ### Architecture
 
 ```
 OpenForms.php              Entry point, constants, PSR-4 autoloader
 src/
-├── Init.php               Loads the five modules
+├── Init.php               Loads the six modules
 ├── Fields.php             Shared field registry + render/validate/sanitize/upload helpers
 ├── ProductForms.php       Product meta box + variation panel, persistence, admin JS
 ├── ProductForm.php        Renders fields above the add-to-cart button
 ├── CartHandler.php        Validation, cart item data, cart/checkout display, order meta
 ├── OrderFormData.php      Order-screen meta box + summary order notes
-└── Download.php           Authorized download endpoint for private uploads
+├── Download.php           Authorized download endpoint for private uploads
+└── Cleanup.php            Deletes uploads orphaned by removed cart items / deleted orders
 assets/
 ├── js/admin.js            Add/remove field rows (uses a hidden template row)
 ├── js/frontend.js         Shows/hides variation fields on found_variation
@@ -149,6 +150,14 @@ The submitted data travels through the WooCommerce pipeline via these hooks:
 Uploaded files are stored in a dedicated `openforms` folder under `wp-content/uploads` with an `.htaccess` that denies direct web access. The plugin writes its own protection files (`index.php` and `.htaccess`) when the folder is first created, and every file is stored under a random, unguessable token instead of its real name.
 
 Files are only served through the `?openforms_download=<token>` endpoint (`template_redirect`). The request is allowed when the current user can `edit_shop_orders` (admin / shop staff) or when the token is still present in the shopper's active cart — so the cart and checkout links work while the token hasn't been placed on an order yet. Files are always streamed as a forced download with `X-Content-Type-Options: nosniff` so stored content can never render inside a browser origin.
+
+### 6. Orphan cleanup — `src/Cleanup.php`
+
+Uploads are deleted as soon as their only reference goes away, so abandoned files do not accumulate in the private folder:
+
+- **Cart item removed** — the file tokens are queued in the shopper's session (so the item can still be restored via the cart's "Undo" notice) and physically deleted once the cart is emptied.
+- **Cart emptied** — every queued token that is not referenced by an existing order is deleted. During checkout the new order is persisted before the cart is emptied, so files that now belong to an order are kept.
+- **Order deleted** — on permanent deletion (`woocommerce_before_delete_order` for WooCommerce 8.0+ HPOS *and* legacy orders, `before_delete_post` as a fallback for older stores) every file referenced by the order's line items is deleted, unless another order still references the same file. Trashing an order is left untouched, so restorable orders keep their files.
 
 ### Storage summary
 
