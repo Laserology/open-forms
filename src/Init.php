@@ -18,7 +18,15 @@ final class Init {
 	 * Constructor.
 	 */
 	public function __construct() {
+		$this->load_textdomain();
 		$this->load_modules();
+	}
+
+	/**
+	 * Load the plugin translations from the languages directory.
+	 */
+	private function load_textdomain() {
+		load_plugin_textdomain( 'openforms', false, dirname( plugin_basename( OPENFORMS_FILE ) ) . '/languages' );
 	}
 
 	/**
@@ -29,5 +37,6 @@ final class Init {
 		new ProductForm();
 		new CartHandler();
 		new OrderFormData();
+		new Download();
 	}
 }

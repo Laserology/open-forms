@@ -21,6 +21,8 @@ class OrderFormData {
 	public function __construct() {
 		add_action( 'add_meta_boxes', array( $this, 'add_meta_box' ) );
 		add_action( 'woocommerce_checkout_order_created', array( $this, 'add_order_notes' ), 10, 1 );
+		add_filter( 'woocommerce_display_item_meta', array( $this, 'display_item_meta' ), 10, 3 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ) );
 	}
 
 	/**
@@ -120,12 +122,57 @@ class OrderFormData {
 
 			$order->add_order_note(
 				sprintf(
-					/* translators: 1: item name, 2: submitted values */
+					/* translators: 1: item name, 2: submitted field values separated by "; ". Order note added at checkout to summarize the form content of a line item. */
 					__( 'OpenForms: %1$s - %2$s', 'openforms' ),
 					$item->get_name(),
 					implode( '; ', $lines )
 				)
 			);
 		}
+	}
+
+	/**
+	 * Replace the raw JSON meta on customer facing order screens (order
+	 * received page, order details, emails) with a readable table.
+	 *
+	 * @param string         $html Existing item meta html.
+	 * @param \WC_Order_Item $item Order line item.
+	 * @param array          $args Display arguments.
+	 * @return string
+	 */
+	public function display_item_meta( $html, $item, $args ) {
+		$data = json_decode( $item->get_meta( 'openforms_data' ), true );
+
+		if ( ! is_array( $data ) || empty( $data ) ) {
+			return $html;
+		}
+
+		$rows = '';
+
+		foreach ( $data as $entry ) {
+			if ( 'file' === $entry['type'] ) {
+				// The download endpoint only serves files while the token is
+				// still in the cart or to shop staff, so customers see the
+				// file details without a link that would fail after checkout.
+				$value = esc_html( $entry['file_name'] ) . ' (' . esc_html( size_format( $entry['file_size'] ) ) . ')';
+			} else {
+				$value = esc_html( $entry['value'] );
+			}
+
+			$rows .= '<tr><th>' . esc_html( $entry['field_name'] ) . '</th><td>' . $value . '</td></tr>';
+		}
+
+		return '<table class="openforms-item-meta">' . $rows . '</table>';
+	}
+
+	/**
+	 * Load the frontend stylesheet on the order screens that render item meta.
+	 */
+	public function enqueue() {
+		if ( ! is_order_received_page() && ! is_view_order_page() ) {
+			return;
+		}
+
+		wp_enqueue_style( 'openforms-frontend', OPENFORMS_URL . 'assets/css/frontend.css', array(), OPENFORMS_VERSION );
 	}
 }

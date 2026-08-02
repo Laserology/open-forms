@@ -20,3 +20,20 @@
 	width: 100%;
 	max-width: 480px;
 }
+
+.openforms-item-meta {
+	margin: 0.5em 0 0;
+	border-collapse: collapse;
+}
+
+.openforms-item-meta th,
+.openforms-item-meta td {
+	padding: 2px 8px 2px 0;
+	vertical-align: top;
+}
+
+.openforms-item-meta th {
+	font-weight: 600;
+	text-align: left;
+	white-space: nowrap;
+}

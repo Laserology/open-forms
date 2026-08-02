@@ -117,10 +117,12 @@ class Fields {
 
 		if ( 'file' === $type ) {
 			if ( $required && empty( $_FILES['openforms']['name'][ $input_key ] ) ) {
+				/* translators: %s: field name. Shown when a required file field is left empty. */
 				return array( sprintf( __( '%s is required.', 'openforms' ), $name ) );
 			}
 
 			if ( ! empty( $_FILES['openforms']['name'][ $input_key ] ) && (int) $_FILES['openforms']['error'][ $input_key ] !== UPLOAD_ERR_OK ) {
+				/* translators: %s: field name. Shown when the uploaded file fails validation. */
 				return array( sprintf( __( '%s could not be uploaded.', 'openforms' ), $name ) );
 			}
 
@@ -131,19 +133,23 @@ class Fields {
 		$value = is_string( $value ) ? $value : '';
 
 		if ( $required && '' === trim( $value ) ) {
+			/* translators: %s: field name. Shown when a required field is left empty. */
 			return array( sprintf( __( '%s is required.', 'openforms' ), $name ) );
 		}
 
 		if ( '' !== trim( $value ) ) {
 			if ( 'url' === $type && ! filter_var( $value, FILTER_VALIDATE_URL ) ) {
+				/* translators: %s: field name. Shown when the value is not a well-formed URL. */
 				return array( sprintf( __( '%s is not a valid URL.', 'openforms' ), $name ) );
 			}
 
 			if ( 'email' === $type && ! is_email( $value ) ) {
+				/* translators: %s: field name. Shown when the value is not a well-formed email address. */
 				return array( sprintf( __( '%s is not a valid email address.', 'openforms' ), $name ) );
 			}
 
 			if ( 'number' === $type && ! is_numeric( $value ) ) {
+				/* translators: %s: field name. Shown when the value is not numeric. */
 				return array( sprintf( __( '%s must be a number.', 'openforms' ), $name ) );
 			}
 		}
@@ -176,7 +182,42 @@ class Fields {
 	}
 
 	/**
-	 * Move an uploaded file into the openforms uploads directory.
+	 * Path to the private uploads folder. Files stored here are never served
+	 * directly: the folder is denied over the web and content is handed out
+	 * through the authorized Download endpoint only.
+	 *
+	 * @return string
+	 */
+	public static function upload_dir() {
+		$dir = wp_upload_dir();
+		$dir = $dir['basedir'] . '/openforms';
+
+		if ( ! is_dir( $dir ) ) {
+			wp_mkdir_p( $dir );
+
+			// Block direct web access and stop PHP from executing in here.
+			file_put_contents( $dir . '/index.php', '<?php' . PHP_EOL . '// Silence is golden.' . PHP_EOL ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			file_put_contents( // phpcs:ignore WordPress.WP.AlternativeFunctions
+				$dir . '/.htaccess',
+				'# Apache 2.2' . PHP_EOL .
+				'<IfModule !mod_authz_core.c>' . PHP_EOL .
+				'Order deny,allow' . PHP_EOL .
+				'Deny from all' . PHP_EOL .
+				'</IfModule>' . PHP_EOL .
+				'# Apache 2.4+' . PHP_EOL .
+				'<IfModule mod_authz_core.c>' . PHP_EOL .
+				'Require all denied' . PHP_EOL .
+				'</IfModule>' . PHP_EOL
+			);
+		}
+
+		return $dir;
+	}
+
+	/**
+	 * Move an uploaded file into the private openforms uploads folder. Files
+	 * are stored under a random token so they can only be reached through the
+	 * authorized download endpoint, never by guessing their URL.
 	 *
 	 * @param string $input_key Input name key.
 	 * @return array|null File details or null on failure.
@@ -197,28 +238,25 @@ class Fields {
 		$filetype = wp_check_filetype_and_ext( $tmp_name, $name );
 
 		if ( empty( $filetype['type'] ) || empty( $filetype['ext'] ) ) {
+			/* translators: %s: uploaded file name. Shown when the file type is rejected by WordPress. */
 			wc_add_notice( sprintf( __( '%s could not be uploaded.', 'openforms' ), $name ), 'error' );
 			return null;
 		}
 
-		$dir    = wp_upload_dir();
-		$folder = $dir['path'] . '/openforms';
-
-		if ( ! is_dir( $folder ) ) {
-			wp_mkdir_p( $folder );
-		}
-
-		$file     = wp_unique_filename( $folder, $name );
-		$dest     = $folder . '/' . $file;
+		$folder = self::upload_dir();
+		$token  = bin2hex( random_bytes( 16 ) );
+		$dest   = $folder . '/' . $token . '-' . $name;
 
 		if ( ! move_uploaded_file( $tmp_name, $dest ) ) {
+			/* translators: %s: uploaded file name. Shown when the file cannot be moved into the uploads folder. */
 			wc_add_notice( sprintf( __( '%s could not be uploaded.', 'openforms' ), $name ), 'error' );
 			return null;
 		}
 
 		return array(
+			'file_key'  => $token,
 			'file_name' => $name,
-			'file_url'  => $dir['url'] . '/openforms/' . $file,
+			'file_url'  => add_query_arg( 'openforms_download', $token, home_url( '/' ) ),
 			'file_path' => $dest,
 			'file_size' => isset( $_FILES['openforms']['size'][ $input_key ] ) ? (int) $_FILES['openforms']['size'][ $input_key ] : 0,
 		);

@@ -7,7 +7,7 @@ OpenForms is a lightweight WordPress plugin that lets store owners attach config
 The goal of this plugin is to provied a bare-bones, simple, and easy no-nonsense product forms solution for stores of any size. This plugin does not and likely will never have a "Pro" version. The goal of the project is to be the most open source friendly as possible.
 
 - **Plugin name:** OpenForms
-- **Version:** 1.0.0
+- **Version:** 1.0.2
 - **Requires:** WordPress, WooCommerce, PHP 7.4+
 - **License:** [GPL-2.0-or-later](LICENSE)
 
@@ -24,11 +24,11 @@ OpenForms adds a form builder to the product edit screen. Each form is a simple 
 | URL | URL input | validated client-side & server-side |
 | Email | email input | validated client-side & server-side |
 | Number | number input | validated server-side |
-| File Upload | file input | validated, sanitized, stored in `uploads` |
+| File Upload | file input | validated, sanitized, stored privately |
 
 New field types can be registered by developers through the [`openforms_field_types`](#extending) filter.
 
-Every field can be marked as **required**. Any submitted file goes through WordPress's core filetype checks and is moved into a dedicated `openforms` folder inside the site's upload directory, so the file is never exposed to the public directly.
+Every field can be marked as **required**. Any submitted file goes through WordPress's core filetype checks and is moved into a private `openforms` folder inside the site's upload directory. The folder is denied over the web (via `.htaccess`), files are stored under unguessable random tokens, and they are only ever served through an authorized download endpoint — to shop staff, or to the shopper whose cart still holds the file. The files are never exposed to the public directly.
 
 ---
 
@@ -73,25 +73,27 @@ The shopper fills in the fields and adds the product to the cart. Required field
 
 - Submitted values are shown underneath the item in the **cart** and **checkout** summaries (files appear as a clickable link).
 - Once the order is placed, every submitted value is persisted to the order's line item and a summary order note is added automatically (e.g. `OpenForms: T-shirt - Size: M; Personalisation: "Hello world"`).
+- On the customer-facing **order received** page, order details and order emails, the submitted values are shown as a neat table (files display their name and size; the raw JSON is hidden).
 - In the admin, the **Form Attachments** meta box on the order screen lists the submitted fields for each line item, including the file name and size.
 
 ---
 
 ## How it works (developer perspective)
 
-The plugin is deliberately modular. `OpenForms.php` bootstraps everything: it defines the plugin constants, registers a small PSR-4 style autoloader that maps the `OpenForms\` namespace to the `src/` directory, and instantiates the core `Init` class. `Init` then loads four independent modules.
+The plugin is deliberately modular. `OpenForms.php` bootstraps everything: it defines the plugin constants, registers a small PSR-4 style autoloader that maps the `OpenForms\` namespace to the `src/` directory, and instantiates the core `Init` class. `Init` then loads five independent modules.
 
 ### Architecture
 
 ```
 OpenForms.php              Entry point, constants, PSR-4 autoloader
 src/
-├── Init.php               Loads the four modules
+├── Init.php               Loads the five modules
 ├── Fields.php             Shared field registry + render/validate/sanitize/upload helpers
 ├── ProductForms.php       Product meta box + variation panel, persistence, admin JS
 ├── ProductForm.php        Renders fields above the add-to-cart button
 ├── CartHandler.php        Validation, cart item data, cart/checkout display, order meta
-└── OrderFormData.php      Order-screen meta box + summary order notes
+├── OrderFormData.php      Order-screen meta box + summary order notes
+└── Download.php           Authorized download endpoint for private uploads
 assets/
 ├── js/admin.js            Add/remove field rows (uses a hidden template row)
 ├── js/frontend.js         Shows/hides variation fields on found_variation
@@ -107,7 +109,7 @@ The `Fields` class is the single source of truth for fields:
 - `Fields::render( $input_key, $field )` — outputs the label + input markup.
 - `Fields::validate( $input_key, $field )` — returns an array of error messages (required check, URL/email/number format, file upload errors).
 - `Fields::sanitize( $type, $value )` — type-aware sanitization of submitted values.
-- `Fields::save_file( $input_key )` — moves an uploaded file into the `openforms` uploads folder after WordPress filetype checks, returning file details (name, url, path, size).
+- `Fields::save_file( $input_key )` — moves an uploaded file into the private `openforms` uploads folder after WordPress filetype checks, storing it under a random token and returning file details (token, name, download url, path, size).
 
 ### 1. Admin configuration — `src/ProductForms.php`
 
@@ -139,7 +141,14 @@ The submitted data travels through the WooCommerce pipeline via these hooks:
 
 - Adds a **Form Attachments** meta box to the order screen. It detects whether the store uses legacy order posts or HPOS (`CustomOrdersTableController`) and registers against the correct screen.
 - Renders a table per line item showing every submitted field, with files as links plus formatted file size.
+- `woocommerce_display_item_meta` swaps the raw `openforms_data` JSON for a readable table on the customer-facing order screens (order received page, order details, emails). File entries are shown as name + size since the download endpoint only serves files while the token is still in the cart.
 - `woocommerce_checkout_order_created` appends a compact **order note** summarizing each item's form content, so the data shows up in email/status history too.
+
+### 5. Private file delivery — `src/Download.php`
+
+Uploaded files are stored in a dedicated `openforms` folder under `wp-content/uploads` with an `.htaccess` that denies direct web access. The plugin writes its own protection files (`index.php` and `.htaccess`) when the folder is first created, and every file is stored under a random, unguessable token instead of its real name.
+
+Files are only served through the `?openforms_download=<token>` endpoint (`template_redirect`). The request is allowed when the current user can `edit_shop_orders` (admin / shop staff) or when the token is still present in the shopper's active cart — so the cart and checkout links work while the token hasn't been placed on an order yet. Files are always streamed as a forced download with `X-Content-Type-Options: nosniff` so stored content can never render inside a browser origin.
 
 ### Storage summary
 
@@ -149,7 +158,7 @@ The submitted data travels through the WooCommerce pipeline via these hooks:
 | Field definitions | post meta `_openforms_fields` (serialized array) |
 | Cart item data | `openforms_data` JSON key on the cart item |
 | Order line item data | `openforms_data` JSON meta on the order line item |
-| Uploaded files | `wp-content/uploads/<date>/openforms/` |
+| Uploaded files | `wp-content/uploads/openforms/` (private, denied over the web, served via authorized download) |
 
 ### Extending
 

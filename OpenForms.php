@@ -2,7 +2,7 @@
 /**
  * Plugin Name: OpenForms
  * Description: Add modular forms to WooCommerce products and variations. Form data and file uploads are stored against the order for easy review.
- * Version:     1.0.0
+ * Version:     1.0.2
  * Author:      Evan
  * License:     GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'OPENFORMS_VERSION', '1.0.0' );
+define( 'OPENFORMS_VERSION', '1.0.2' );
 define( 'OPENFORMS_FILE', __FILE__ );
 define( 'OPENFORMS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'OPENFORMS_URL', plugin_dir_url( __FILE__ ) );

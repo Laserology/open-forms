@@ -24,6 +24,25 @@
 		tbody.insertBefore(row, template);
 	}
 
+	// Use the highest existing row index + 1 so removing a middle row never
+	// causes a new row to reuse an index that is still present (which would
+	// silently overwrite a field on save).
+	function nextFieldIndex(tbody) {
+		var index = 0;
+		var rows = realRows(tbody);
+
+		for (var i = 0; i < rows.length; i++) {
+			var input = rows[i].querySelector('input[name*="[fields]["][name]');
+			var match = input ? input.name.match(/\[fields\]\[(\d+)\]\[name\]/) : null;
+
+			if (match) {
+				index = Math.max(index, parseInt(match[1], 10) + 1);
+			}
+		}
+
+		return index;
+	}
+
 	document.addEventListener('click', function (e) {
 		var addBtn = e.target.closest('.openforms-add-field');
 
@@ -36,7 +55,7 @@
 			}
 
 			var row = template.cloneNode(true);
-			var index = realRows(tbody).length;
+			var index = nextFieldIndex(tbody);
 
 			row.classList.remove('openforms-field-template');
 			row.removeAttribute('hidden');
