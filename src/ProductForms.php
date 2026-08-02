@@ -70,6 +70,11 @@ class ProductForms {
 
 		echo '<div class="openforms-variation-panel">';
 		echo '<h4>' . esc_html__( 'OpenForms', 'openforms' ) . '</h4>';
+
+		// Per-variation nonce so the panel config can only be saved by an
+		// authorized request. Defense in depth on top of the product save.
+		wp_nonce_field( 'openforms_save_variation_' . $variation->ID, 'openforms_variation_nonce_' . $variation->ID );
+
 		echo '<p class="openforms-intro">';
 		echo esc_html__( 'Forms configured here only apply to this variation. Fields are shown when the variation is selected.', 'openforms' );
 		echo '</p>';
@@ -168,6 +173,10 @@ class ProductForms {
 			return;
 		}
 
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			return;
+		}
+
 		$data = isset( $_POST['openforms'] ) ? wp_unslash( $_POST['openforms'] ) : array();
 		$this->save_config( $post_id, $data );
 	}
@@ -179,6 +188,16 @@ class ProductForms {
 	 * @param int $loop         Loop index.
 	 */
 	public function save_variation( $variation_id, $loop ) {
+		$nonce_field = 'openforms_variation_nonce_' . $variation_id;
+
+		if ( ! isset( $_POST[ $nonce_field ] ) || ! wp_verify_nonce( wp_unslash( $_POST[ $nonce_field ] ), 'openforms_save_variation_' . $variation_id ) ) {
+			return;
+		}
+
+		if ( ! current_user_can( 'edit_post', $variation_id ) ) {
+			return;
+		}
+
 		$data = isset( $_POST['openforms_variation'][ $variation_id ] ) ? wp_unslash( $_POST['openforms_variation'][ $variation_id ] ) : array();
 		$this->save_config( $variation_id, $data );
 	}
