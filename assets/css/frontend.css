@@ -1,0 +1,22 @@
+.openforms-fields {
+	margin: 0 0 1.5em;
+}
+
+.openforms-fields .openforms-field {
+	margin: 0 0 1em;
+}
+
+.openforms-fields .openforms-label {
+	display: block;
+	margin-bottom: 4px;
+}
+
+.openforms-fields .openforms-label .required {
+	color: #d63638;
+}
+
+.openforms-fields .openforms-input {
+	display: block;
+	width: 100%;
+	max-width: 480px;
+}

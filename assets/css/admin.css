@@ -1,0 +1,41 @@
+.openforms-intro {
+	color: #646970;
+}
+
+.openforms-config .openforms-enabled {
+	margin-bottom: 12px;
+}
+
+.openforms-config .openforms-fields-table {
+	margin-bottom: 12px;
+}
+
+.openforms-config .openforms-fields-table th,
+.openforms-config .openforms-fields-table td {
+	vertical-align: middle;
+}
+
+.openforms-config .openforms-fields-table input[type="text"] {
+	width: 100%;
+}
+
+.openforms-config .openforms-required-col {
+	width: 80px;
+	text-align: center;
+}
+
+.openforms-config .openforms-actions-col {
+	width: 90px;
+	text-align: right;
+}
+
+.openforms-variation-panel {
+	border: 1px solid #dcdcde;
+	background: #fff;
+	padding: 12px 16px;
+	margin: 12px 0;
+}
+
+.openforms-variation-panel h4 {
+	margin: 0 0 6px;
+}
