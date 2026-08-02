@@ -33,11 +33,8 @@ final class Init {
 	 * Instantiate each modular component.
 	 */
 	private function load_modules() {
-		new ProductForms();
-		new ProductForm();
-		new CartHandler();
-		new OrderFormData();
-		new Download();
-		new Cleanup();
+		foreach ( array( Admin\ProductSettings::class, Frontend\ProductForm::class, Services\CartHandler::class, DTOs\OrderFormData::class, Services\Download::class, Services\Cleanup::class ) as $module ) {
+			new $module();
+		}
 	}
 }

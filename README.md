@@ -88,31 +88,45 @@ The plugin is deliberately modular. `OpenForms.php` bootstraps everything: it de
 OpenForms.php              Entry point, constants, PSR-4 autoloader
 src/
 ├── Init.php               Loads the six modules
-├── Fields.php             Shared field registry + render/validate/sanitize/upload helpers
-├── ProductForms.php       Product meta box + variation panel, persistence, admin JS
-├── ProductForm.php        Renders fields above the add-to-cart button
-├── CartHandler.php        Validation, cart item data, cart/checkout display, order meta
-├── OrderFormData.php      Order-screen meta box + summary order notes
-├── Download.php           Authorized download endpoint for private uploads
-└── Cleanup.php            Deletes uploads orphaned by removed cart items / deleted orders
+├── FieldHelpers.php       Shared field registry + render/validate/sanitize/upload helpers
+├── DataHelpers.php        Shared helpers for the form payload JSON (decode, tokens, file render)
+├── Admin/
+│   └── ProductSettings.php  Product meta box + variation panel, persistence, admin JS
+├── Frontend/
+│   └── ProductForm.php     Renders fields above the add-to-cart button
+├── Services/
+│   ├── CartHandler.php    Validation, cart item data, cart/checkout display, order meta
+│   ├── Download.php       Authorized download endpoint for private uploads
+│   └── Cleanup.php        Deletes uploads orphaned by removed cart items / deleted orders
+└── DTOs/
+    └── OrderFormData.php  Order-screen meta box + summary order notes
 assets/
 ├── js/admin.js            Add/remove field rows (uses a hidden template row)
 ├── js/frontend.js         Shows/hides variation fields on found_variation
 └── css/                   admin.css, frontend.css
 ```
 
-### Shared field logic — `src/Fields.php`
+### Shared field logic — `src/FieldHelpers.php`
 
-The `Fields` class is the single source of truth for fields:
+The `FieldHelpers` class is the single source of truth for fields:
 
-- `Fields::types()` — returns the registered field types. Wrapped in the `openforms_field_types` filter.
-- `Fields::for_post( $post_id )` — returns the cleaned, enabled field list for a product or variation, keyed by field key. Returns an empty array when forms are disabled.
-- `Fields::render( $input_key, $field )` — outputs the label + input markup.
-- `Fields::validate( $input_key, $field )` — returns an array of error messages (required check, URL/email/number format, file upload errors).
-- `Fields::sanitize( $type, $value )` — type-aware sanitization of submitted values.
-- `Fields::save_file( $input_key )` — moves an uploaded file into the private `openforms` uploads folder after WordPress filetype checks, storing it under a random token and returning file details (token, name, download url, path, size).
+- `FieldHelpers::types()` — returns the registered field types. Wrapped in the `openforms_field_types` filter.
+- `FieldHelpers::for_post( $post_id )` — returns the cleaned, enabled field list for a product or variation, keyed by field key. Returns an empty array when forms are disabled.
+- `FieldHelpers::render( $input_key, $field )` — outputs the label + input markup.
+- `FieldHelpers::validate( $input_key, $field )` — returns an array of error messages (required check, URL/email/number format, file upload errors).
+- `FieldHelpers::sanitize( $type, $value )` — type-aware sanitization of submitted values.
+- `FieldHelpers::save_file( $input_key )` — moves an uploaded file into the private `openforms` uploads folder after WordPress filetype checks, storing it under a random token and returning file details (token, name, download url, path, size).
+- `FieldHelpers::is_valid_token( $token )` / `FieldHelpers::files_for_token( $token )` — shared token validation and file lookup used by the download endpoint and cleanup.
 
-### 1. Admin configuration — `src/ProductForms.php`
+### Shared payload helpers — `src/DataHelpers.php`
+
+The `DataHelpers` class owns the JSON payload stored on cart items and order line items:
+
+- `DataHelpers::decode( $json )` — decodes `openforms_data` into an array, returning an empty array when it is missing or not valid JSON.
+- `DataHelpers::file_tokens( $data )` — the file tokens referenced by a decoded payload.
+- `DataHelpers::render_file( $entry, $with_link, $with_size )` — renders a file entry's value (name, optional download link and formatted size).
+
+### 1. Admin configuration — `src/Admin/ProductSettings.php`
 
 - Registers a **"OpenForms" meta box** on the product edit screen and a **per-variation panel** inside the variable product editor.
 - Renders an "Enable forms" checkbox plus a repeatable field table (name / type / required / remove). A hidden template `<tr>` with an `INDEX` placeholder is used by `assets/js/admin.js` to add rows.
@@ -121,37 +135,37 @@ The `Fields` class is the single source of truth for fields:
   - `_openforms_fields` → array of `{ key, name, type, required }`
 - Field keys are generated from a sanitized title plus a running index (`sanitize_title( $name ) . '-' . $i`).
 
-### 2. Frontend rendering — `src/ProductForm.php`
+### 2. Frontend rendering — `src/Frontend/ProductForm.php`
 
 - Hooks `woocommerce_before_add_to_cart_button` to output the fields above the add-to-cart button.
 - Renders **product-level fields** always. Field input names use `openforms[<key>]`.
 - For **variable products**, renders each variation's fields in a hidden `<div class="openforms-variation-fields" data-variation-id="…">`. Field names are prefixed with the variation ID (`openforms[<variation_id>_<key>]`) so they are unique.
 - `assets/js/frontend.js` listens to WooCommerce's `found_variation` / `reset_data` events to show and hide the variation-specific fields.
 
-### 3. Cart & checkout lifecycle — `src/CartHandler.php`
+### 3. Cart & checkout lifecycle — `src/Services/CartHandler.php`
 
 The submitted data travels through the WooCommerce pipeline via these hooks:
 
-1. **Validate** — `woocommerce_add_to_cart_validation` runs `Fields::validate()` for every merged product + variation field and blocks add-to-cart with notices if any fail.
+1. **Validate** — `woocommerce_add_to_cart_validation` runs `FieldHelpers::validate()` for every merged product + variation field and blocks add-to-cart with notices if any fail.
 2. **Attach to cart item** — `woocommerce_add_cart_item_data` sanitizes each value, moves uploaded files, and stores everything as a JSON string under the `openforms_data` cart item key.
 3. **Display** — `woocommerce_get_item_data` decodes that JSON and shows each field/value in the cart and checkout item summaries (files as links).
 4. **Persist to order** — `woocommerce_checkout_create_order_line_item` writes the same JSON onto the order line item meta (`openforms_data`).
 5. **Hide raw meta** — `woocommerce_hidden_order_itemmeta` keeps the raw JSON out of the standard order meta table, since it is rendered in its own meta box instead.
 
-### 4. Order admin — `src/OrderFormData.php`
+### 4. Order admin — `src/DTOs/OrderFormData.php`
 
 - Adds a **Form Attachments** meta box to the order screen. It detects whether the store uses legacy order posts or HPOS (`CustomOrdersTableController`) and registers against the correct screen.
 - Renders a table per line item showing every submitted field, with files as links plus formatted file size.
 - `woocommerce_display_item_meta` swaps the raw `openforms_data` JSON for a readable table on the customer-facing order screens (order received page, order details, emails). File entries are shown as name + size since the download endpoint only serves files while the token is still in the cart.
 - `woocommerce_checkout_order_created` appends a compact **order note** summarizing each item's form content, so the data shows up in email/status history too.
 
-### 5. Private file delivery — `src/Download.php`
+### 5. Private file delivery — `src/Services/Download.php`
 
 Uploaded files are stored in a dedicated `openforms` folder under `wp-content/uploads` with an `.htaccess` that denies direct web access. The plugin writes its own protection files (`index.php` and `.htaccess`) when the folder is first created, and every file is stored under a random, unguessable token instead of its real name.
 
 Files are only served through the `?openforms_download=<token>` endpoint (`template_redirect`). The request is allowed when the current user can `edit_shop_orders` (admin / shop staff) or when the token is still present in the shopper's active cart — so the cart and checkout links work while the token hasn't been placed on an order yet. Files are always streamed as a forced download with `X-Content-Type-Options: nosniff` so stored content can never render inside a browser origin.
 
-### 6. Orphan cleanup — `src/Cleanup.php`
+### 6. Orphan cleanup — `src/Services/Cleanup.php`
 
 Uploads are deleted as soon as their only reference goes away, so abandoned files do not accumulate in the private folder:
 

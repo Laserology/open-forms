@@ -19,159 +19,159 @@ msgstr ""
 #. Title of the meta box on the product edit screen where store owners
 #. configure the form fields. Also shown as the heading of the per-variation
 #. form panel inside the variable product editor.
-#: src/ProductForms.php:34
-#: src/ProductForms.php:72
+#: src/Admin/ProductSettings.php:34
+#: src/Admin/ProductSettings.php:72
 msgid "OpenForms"
 msgstr ""
 
 #. Shown at the top of the product form meta box. Explains that fields
 #. configured here appear on the storefront product page above the add to
 #. cart button, and that on a variable product they apply to every variation.
-#: src/ProductForms.php:54
+#: src/Admin/ProductSettings.php:54
 msgid "Forms configured here appear on the product page above the add to cart button. On a variable product these apply to every variation."
 msgstr ""
 
 #. Shown at the top of the form panel inside a single variation. Explains
 #. that fields configured here only apply to that variation and are revealed
 #. on the storefront once the shopper selects it.
-#: src/ProductForms.php:74
+#: src/Admin/ProductSettings.php:74
 msgid "Forms configured here only apply to this variation. Fields are shown when the variation is selected."
 msgstr ""
 
 #. Checkbox label in the product form meta box. When ticked, the configured
 #. form is activated on the product page.
-#: src/ProductForms.php:96
+#: src/Admin/ProductSettings.php:96
 msgid "Enable forms"
 msgstr ""
 
 #. Table column header in the form builder. The column holds the field name
 #. shown to shoppers.
-#: src/ProductForms.php:102
+#: src/Admin/ProductSettings.php:102
 msgid "Name"
 msgstr ""
 
 #. Table column header in the form builder. The column holds the field type
 #. (e.g. Text, Email, File Upload).
-#: src/ProductForms.php:103
+#: src/Admin/ProductSettings.php:103
 msgid "Type"
 msgstr ""
 
 #. Table column header in the form builder. The column holds a checkbox that
 #. marks a field as mandatory for shoppers.
-#: src/ProductForms.php:104
+#: src/Admin/ProductSettings.php:104
 msgid "Required"
 msgstr ""
 
 #. Empty-state message shown in the form builder table when a product or
 #. variation has no fields configured yet.
-#: src/ProductForms.php:110
-#: src/ProductForms.php:123
+#: src/Admin/ProductSettings.php:110
+#: src/Admin/ProductSettings.php:123
 msgid "No fields added yet."
 msgstr ""
 
 #. Button label in the product form meta box. Clicking it adds a new empty
 #. row to the field table.
-#: src/ProductForms.php:127
+#: src/Admin/ProductSettings.php:127
 msgid "Add Field"
 msgstr ""
 
 #. Placeholder text in the field name input of each row in the form builder.
 #. Suggests the name of a new form field.
-#: src/ProductForms.php:148
+#: src/Admin/ProductSettings.php:148
 msgid "Field name"
 msgstr ""
 
 #. Button label on each row of the form builder. Clicking it deletes that
 #. field row.
-#: src/ProductForms.php:157
+#: src/Admin/ProductSettings.php:157
 msgid "Remove"
 msgstr ""
 
 #. Option label for the text field type in the form builder's type dropdown.
 #. Renders as a single-line text input for shoppers.
-#: src/Fields.php:29
+#: src/FieldHelpers.php:29
 msgid "Text"
 msgstr ""
 
 #. Option label for the textarea field type in the form builder's type
 #. dropdown. Renders as a multi-line text area for shoppers.
-#: src/Fields.php:30
+#: src/FieldHelpers.php:30
 msgid "Textarea"
 msgstr ""
 
 #. Option label for the URL field type in the form builder's type dropdown.
 #. Renders as a URL input that is validated on both client and server.
-#: src/Fields.php:31
+#: src/FieldHelpers.php:31
 msgid "URL"
 msgstr ""
 
 #. Option label for the email field type in the form builder's type dropdown.
 #. Renders as an email input that is validated on both client and server.
-#: src/Fields.php:32
+#: src/FieldHelpers.php:32
 msgid "Email"
 msgstr ""
 
 #. Option label for the number field type in the form builder's type
 #. dropdown. Renders as a number input that is validated server-side.
-#: src/Fields.php:33
+#: src/FieldHelpers.php:33
 msgid "Number"
 msgstr ""
 
 #. Option label for the file field type in the form builder's type dropdown.
 #. Renders as a file input; uploads are stored against the order.
-#: src/Fields.php:34
+#: src/FieldHelpers.php:34
 msgid "File Upload"
 msgstr ""
 
 #. Error shown to a shopper on the product page when they add a required
 #. field to the cart without filling it in. %s: the name of the field.
-#: src/Fields.php:121
-#: src/Fields.php:137
+#: src/FieldHelpers.php:121
+#: src/FieldHelpers.php:137
 msgid "%s is required."
 msgstr ""
 
 #. Error shown to a shopper on the product page when a file upload fails
 #. validation or cannot be saved. %s: the name of the field, or the name of
 #. the uploaded file.
-#: src/Fields.php:126
-#: src/Fields.php:207
-#: src/Fields.php:223
+#: src/FieldHelpers.php:126
+#: src/FieldHelpers.php:207
+#: src/FieldHelpers.php:223
 msgid "%s could not be uploaded."
 msgstr ""
 
 #. Error shown to a shopper on the product page when the value entered in a
 #. URL field is not a well-formed URL. %s: the name of the field.
-#: src/Fields.php:143
+#: src/FieldHelpers.php:143
 msgid "%s is not a valid URL."
 msgstr ""
 
 #. Error shown to a shopper on the product page when the value entered in an
 #. email field is not a well-formed email address. %s: the name of the field.
-#: src/Fields.php:148
+#: src/FieldHelpers.php:148
 msgid "%s is not a valid email address."
 msgstr ""
 
 #. Error shown to a shopper on the product page when the value entered in a
 #. number field is not numeric. %s: the name of the field.
-#: src/Fields.php:153
+#: src/FieldHelpers.php:153
 msgid "%s must be a number."
 msgstr ""
 
 #. Title of the meta box on the order screen that lists every submitted form
 #. value (and any attached files) for the order's line items.
-#: src/OrderFormData.php:43
+#: src/DTOs/OrderFormData.php:43
 msgid "Form Attachments"
 msgstr ""
 
 #. Shown inside the Form Attachments meta box when the order has no line
 #. items carrying form data.
-#: src/OrderFormData.php:94
+#: src/DTOs/OrderFormData.php:94
 msgid "No form attachments for this order."
 msgstr ""
 
 #. Order note added automatically at checkout summarizing the submitted form
 #. values for one line item. %1$s: the product/item name, %2$s: the submitted
 #. field values separated by "; " (e.g. "Size: M; Colour: blue").
-#: src/OrderFormData.php:124
+#: src/DTOs/OrderFormData.php:124
 msgid "OpenForms: %1$s - %2$s"
 msgstr ""

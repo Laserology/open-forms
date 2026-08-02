@@ -6,7 +6,9 @@
  * @package OpenForms
  */
 
-namespace OpenForms;
+namespace OpenForms\DTOs;
+
+use OpenForms\DataHelpers;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -61,9 +63,9 @@ class OrderFormData {
 
 		if ( $order ) {
 			foreach ( $order->get_items() as $item ) {
-				$data = json_decode( $item->get_meta( 'openforms_data' ), true );
+				$data = DataHelpers::decode( $item->get_meta( 'openforms_data' ) );
 
-				if ( ! is_array( $data ) || empty( $data ) ) {
+				if ( empty( $data ) ) {
 					continue;
 				}
 
@@ -76,14 +78,7 @@ class OrderFormData {
 				foreach ( $data as $entry ) {
 					echo '<tr>';
 					echo '<th>' . esc_html( $entry['field_name'] ) . '</th>';
-
-					if ( 'file' === $entry['type'] ) {
-						echo '<td><a href="' . esc_url( $entry['file_url'] ) . '" target="_blank" rel="noopener">' . esc_html( $entry['file_name'] ) . '</a>';
-						echo '<span class="openforms-file-meta"> (' . esc_html( size_format( $entry['file_size'] ) ) . ')</span></td>';
-					} else {
-						echo '<td>' . esc_html( $entry['value'] ) . '</td>';
-					}
-
+					echo '<td>' . ( 'file' === $entry['type'] ? DataHelpers::render_file( $entry, true, true ) : esc_html( $entry['value'] ) ) . '</td>';
 					echo '</tr>';
 				}
 
@@ -104,9 +99,9 @@ class OrderFormData {
 	 */
 	public function add_order_notes( $order ) {
 		foreach ( $order->get_items() as $item ) {
-			$data = json_decode( $item->get_meta( 'openforms_data' ), true );
+			$data = DataHelpers::decode( $item->get_meta( 'openforms_data' ) );
 
-			if ( ! is_array( $data ) || empty( $data ) ) {
+			if ( empty( $data ) ) {
 				continue;
 			}
 
@@ -141,24 +136,19 @@ class OrderFormData {
 	 * @return string
 	 */
 	public function display_item_meta( $html, $item, $args ) {
-		$data = json_decode( $item->get_meta( 'openforms_data' ), true );
+		$data = DataHelpers::decode( $item->get_meta( 'openforms_data' ) );
 
-		if ( ! is_array( $data ) || empty( $data ) ) {
+		if ( empty( $data ) ) {
 			return $html;
 		}
 
 		$rows = '';
 
 		foreach ( $data as $entry ) {
-			if ( 'file' === $entry['type'] ) {
-				// The download endpoint only serves files while the token is
-				// still in the cart or to shop staff, so customers see the
-				// file details without a link that would fail after checkout.
-				$value = esc_html( $entry['file_name'] ) . ' (' . esc_html( size_format( $entry['file_size'] ) ) . ')';
-			} else {
-				$value = esc_html( $entry['value'] );
-			}
-
+			// Files are shown without a link: the download endpoint only
+			// serves them while the token is still in the cart or to shop
+			// staff, so a customer-facing link would fail after checkout.
+			$value = 'file' === $entry['type'] ? DataHelpers::render_file( $entry, false, true ) : esc_html( $entry['value'] );
 			$rows .= '<tr><th>' . esc_html( $entry['field_name'] ) . '</th><td>' . $value . '</td></tr>';
 		}
 

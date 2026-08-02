@@ -5,7 +5,9 @@
  * @package OpenForms
  */
 
-namespace OpenForms;
+namespace OpenForms\Frontend;
+
+use OpenForms\FieldHelpers;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -32,42 +34,45 @@ class ProductForm {
 			return;
 		}
 
-		$product_id = $product->get_id();
-		$has_variations = $product->is_type( 'variable' );
-
 		// Product level fields. These apply to the product itself (simple)
 		// or to every variation of a variable product.
-		$fields = Fields::for_post( $product_id );
-
-		if ( ! empty( $fields ) ) {
-			echo '<div class="openforms-fields">';
-
-			foreach ( $fields as $key => $field ) {
-				echo Fields::render( $key, $field ); // phpcs:ignore WordPress.Security.EscapeOutput
-			}
-
-			echo '</div>';
-		}
+		$this->render_field_list( FieldHelpers::for_post( $product->get_id() ) );
 
 		// Variation level fields. These only apply to their specific
 		// variation and are toggled with JS when the variation is selected.
-		if ( $has_variations ) {
+		if ( $product->is_type( 'variable' ) ) {
 			foreach ( $product->get_children() as $variation_id ) {
-				$variation_fields = Fields::for_post( $variation_id );
-
-				if ( empty( $variation_fields ) ) {
-					continue;
-				}
-
-				echo '<div class="openforms-fields openforms-variation-fields" data-variation-id="' . esc_attr( $variation_id ) . '" style="display:none;">';
-
-				foreach ( $variation_fields as $key => $field ) {
-					echo Fields::render( $variation_id . '_' . $key, $field ); // phpcs:ignore WordPress.Security.EscapeOutput
-				}
-
-				echo '</div>';
+				$this->render_field_list( FieldHelpers::for_post( $variation_id ), $variation_id );
 			}
 		}
+	}
+
+	/**
+	 * Render a set of fields inside a wrapper div.
+	 *
+	 * @param array $fields       Fields keyed by field key.
+	 * @param int   $variation_id Variation ID, or 0 for product level fields.
+	 */
+	private function render_field_list( $fields, $variation_id = 0 ) {
+		if ( empty( $fields ) ) {
+			return;
+		}
+
+		$attrs = '';
+
+		if ( $variation_id ) {
+			$attrs = ' openforms-variation-fields" data-variation-id="' . esc_attr( $variation_id ) . '" style="display:none;"';
+		}
+
+		echo '<div class="openforms-fields' . $attrs . '>';
+
+		foreach ( $fields as $key => $field ) {
+			// Variation fields are prefixed with the variation ID so the
+			// submitted values stay unique on the checkout side.
+			echo FieldHelpers::render( $variation_id ? $variation_id . '_' . $key : $key, $field ); // phpcs:ignore WordPress.Security.EscapeOutput
+		}
+
+		echo '</div>';
 	}
 
 	/**

@@ -6,7 +6,10 @@
  * @package OpenForms
  */
 
-namespace OpenForms;
+namespace OpenForms\Services;
+
+use OpenForms\DataHelpers;
+use OpenForms\FieldHelpers;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -37,12 +40,12 @@ class CartHandler {
 	private function fields_for( $product_id, $variation_id = 0 ) {
 		$fields = array();
 
-		foreach ( Fields::for_post( $product_id ) as $key => $field ) {
+		foreach ( FieldHelpers::for_post( $product_id ) as $key => $field ) {
 			$fields[ $key ] = $field;
 		}
 
 		if ( $variation_id ) {
-			foreach ( Fields::for_post( $variation_id ) as $key => $field ) {
+			foreach ( FieldHelpers::for_post( $variation_id ) as $key => $field ) {
 				$fields[ $variation_id . '_' . $key ] = $field;
 			}
 		}
@@ -69,7 +72,7 @@ class CartHandler {
 		$errors = array();
 
 		foreach ( $fields as $input_key => $field ) {
-			$errors = array_merge( $errors, Fields::validate( $input_key, $field ) );
+			$errors = array_merge( $errors, FieldHelpers::validate( $input_key, $field ) );
 		}
 
 		if ( ! empty( $errors ) ) {
@@ -102,7 +105,7 @@ class CartHandler {
 
 		foreach ( $fields as $input_key => $field ) {
 			if ( 'file' === $field['type'] ) {
-				$file = Fields::save_file( $input_key );
+				$file = FieldHelpers::save_file( $input_key );
 
 				if ( $file ) {
 					$file['type']       = 'file';
@@ -119,7 +122,7 @@ class CartHandler {
 			$data[] = array(
 				'field_name' => $field['name'],
 				'type'       => $field['type'],
-				'value'      => Fields::sanitize( $field['type'], $value ),
+				'value'      => FieldHelpers::sanitize( $field['type'], $value ),
 			);
 		}
 
@@ -144,22 +147,10 @@ class CartHandler {
 			return $item_data;
 		}
 
-		$data = json_decode( $cart_item['openforms_data'], true );
-
-		if ( ! is_array( $data ) ) {
-			return $item_data;
-		}
-
-		foreach ( $data as $entry ) {
-			if ( 'file' === $entry['type'] ) {
-				$value = '<a href="' . esc_url( $entry['file_url'] ) . '" target="_blank" rel="noopener">' . esc_html( $entry['file_name'] ) . '</a>';
-			} else {
-				$value = esc_html( $entry['value'] );
-			}
-
+		foreach ( DataHelpers::decode( $cart_item['openforms_data'] ) as $entry ) {
 			$item_data[] = array(
 				'key'   => $entry['field_name'],
-				'value' => $value,
+				'value' => 'file' === $entry['type'] ? DataHelpers::render_file( $entry ) : esc_html( $entry['value'] ),
 			);
 		}
 

@@ -7,7 +7,10 @@
  * @package OpenForms
  */
 
-namespace OpenForms;
+namespace OpenForms\Services;
+
+use OpenForms\DataHelpers;
+use OpenForms\FieldHelpers;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -58,9 +61,9 @@ class Cleanup {
 			return;
 		}
 
-		$data = json_decode( $cart_contents[ $cart_item_key ]['openforms_data'], true );
+		$data = DataHelpers::decode( $cart_contents[ $cart_item_key ]['openforms_data'] );
 
-		$this->queue( self::file_tokens( $data ) );
+		$this->queue( DataHelpers::file_tokens( $data ) );
 	}
 
 	/**
@@ -80,9 +83,9 @@ class Cleanup {
 			return;
 		}
 
-		$data = json_decode( $cart_contents[ $cart_item_key ]['openforms_data'], true );
+		$data = DataHelpers::decode( $cart_contents[ $cart_item_key ]['openforms_data'] );
 
-		$this->unqueue( self::file_tokens( $data ) );
+		$this->unqueue( DataHelpers::file_tokens( $data ) );
 	}
 
 	/**
@@ -119,14 +122,14 @@ class Cleanup {
 		$tokens  = array();
 
 		foreach ( $order->get_items() as $item ) {
-			$data = json_decode( $item->get_meta( 'openforms_data' ), true );
+			$data = DataHelpers::decode( $item->get_meta( 'openforms_data' ) );
 
-			if ( ! is_array( $data ) ) {
+			if ( empty( $data ) ) {
 				continue;
 			}
 
 			$exclude[] = (int) $item->get_id();
-			$tokens    = array_merge( $tokens, self::file_tokens( $data ) );
+			$tokens    = array_merge( $tokens, DataHelpers::file_tokens( $data ) );
 		}
 
 		$exclude = array_unique( array_filter( $exclude ) );
@@ -147,28 +150,6 @@ class Cleanup {
 		if ( 'shop_order' === get_post_type( $post_id ) ) {
 			$this->cleanup_order( $post_id );
 		}
-	}
-
-	/**
-	 * Extract the file tokens referenced by a decoded openforms_data array.
-	 *
-	 * @param array $data Decoded openforms_data.
-	 * @return array
-	 */
-	private static function file_tokens( $data ) {
-		$tokens = array();
-
-		if ( ! is_array( $data ) ) {
-			return $tokens;
-		}
-
-		foreach ( $data as $entry ) {
-			if ( isset( $entry['type'] ) && 'file' === $entry['type'] && ! empty( $entry['file_key'] ) ) {
-				$tokens[] = $entry['file_key'];
-			}
-		}
-
-		return $tokens;
 	}
 
 	/**
@@ -264,26 +245,13 @@ class Cleanup {
 	}
 
 	/**
-	 * Delete the stored file(s) for a token. The token must look like the
-	 * random hex keys generated on upload.
+	 * Delete the stored file(s) for a token.
 	 *
 	 * @param string $token File token.
 	 */
 	private function delete_file( $token ) {
-		if ( ! preg_match( '/^[a-f0-9]{32}$/', $token ) ) {
-			return;
-		}
-
-		$match = glob( Fields::upload_dir() . '/' . $token . '-*' );
-
-		if ( empty( $match ) ) {
-			return;
-		}
-
-		foreach ( $match as $file ) {
-			if ( is_file( $file ) ) {
-				unlink( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-			}
+		foreach ( FieldHelpers::files_for_token( $token ) as $file ) {
+			unlink( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		}
 	}
 }

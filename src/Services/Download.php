@@ -7,7 +7,10 @@
  * @package OpenForms
  */
 
-namespace OpenForms;
+namespace OpenForms\Services;
+
+use OpenForms\DataHelpers;
+use OpenForms\FieldHelpers;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -30,7 +33,7 @@ class Download {
 	public function maybe_download() {
 		$token = isset( $_GET['openforms_download'] ) ? sanitize_text_field( wp_unslash( $_GET['openforms_download'] ) ) : '';
 
-		if ( '' === $token || ! $this->is_valid_token( $token ) ) {
+		if ( '' === $token || ! FieldHelpers::is_valid_token( $token ) ) {
 			return;
 		}
 
@@ -48,31 +51,15 @@ class Download {
 	}
 
 	/**
-	 * Check the token looks like the random hex keys we generate.
-	 *
-	 * @param string $token File token.
-	 * @return bool
-	 */
-	private function is_valid_token( $token ) {
-		return (bool) preg_match( '/^[a-f0-9]{32}$/', $token );
-	}
-
-	/**
 	 * Locate the stored file matching a token.
 	 *
 	 * @param string $token File token.
 	 * @return string|null
 	 */
 	private function find_file( $token ) {
-		$match = glob( Fields::upload_dir() . '/' . $token . '-*' );
+		$files = FieldHelpers::files_for_token( $token );
 
-		if ( empty( $match ) ) {
-			return null;
-		}
-
-		$file = $match[0];
-
-		return ( is_file( $file ) && is_readable( $file ) ) ? $file : null;
+		return ! empty( $files ) && is_readable( $files[0] ) ? $files[0] : null;
 	}
 
 	/**
@@ -91,14 +78,8 @@ class Download {
 				continue;
 			}
 
-			$data = json_decode( $cart_item['openforms_data'], true );
-
-			if ( ! is_array( $data ) ) {
-				continue;
-			}
-
-			foreach ( $data as $entry ) {
-				if ( 'file' === $entry['type'] && ! empty( $entry['file_key'] ) && hash_equals( $token, $entry['file_key'] ) ) {
+			foreach ( DataHelpers::file_tokens( DataHelpers::decode( $cart_item['openforms_data'] ) ) as $file_key ) {
+				if ( hash_equals( $token, $file_key ) ) {
 					return true;
 				}
 			}

@@ -5,14 +5,16 @@
  * @package OpenForms
  */
 
-namespace OpenForms;
+namespace OpenForms\Admin;
+
+use OpenForms\FieldHelpers;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * Meta box (product) and panel (variation) that manage the field list.
  */
-class ProductForms {
+class ProductSettings {
 
 	/**
 	 * Constructor.
@@ -48,7 +50,7 @@ class ProductForms {
 		wp_nonce_field( 'openforms_save_fields', 'openforms_nonce' );
 
 		$enabled = 'yes' === get_post_meta( $post->ID, '_openforms_enabled', true );
-		$fields  = Fields::for_post( $post->ID );
+		$fields  = FieldHelpers::for_post( $post->ID );
 
 		echo '<p class="openforms-intro">';
 		echo esc_html__( 'Forms configured here appear on the product page above the add to cart button. On a variable product these apply to every variation.', 'openforms' );
@@ -66,7 +68,7 @@ class ProductForms {
 	 */
 	public function variation_panel( $loop, $variation_data, $variation ) {
 		$enabled = 'yes' === get_post_meta( $variation->ID, '_openforms_enabled', true );
-		$fields  = Fields::for_post( $variation->ID );
+		$fields  = FieldHelpers::for_post( $variation->ID );
 
 		echo '<div class="openforms-variation-panel">';
 		echo '<h4>' . esc_html__( 'OpenForms', 'openforms' ) . '</h4>';
@@ -153,7 +155,7 @@ class ProductForms {
 		echo '<td><input type="text" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][name]" value="' . esc_attr( $name ) . '" placeholder="' . esc_attr__( 'Field name', 'openforms' ) . '" /></td>';
 		echo '<td><select name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][type]">';
 
-		foreach ( Fields::types() as $slug => $config ) {
+		foreach ( FieldHelpers::types() as $slug => $config ) {
 			echo '<option value="' . esc_attr( $slug ) . '"' . selected( $type, $slug, false ) . '>' . esc_html( $config['label'] ) . '</option>';
 		}
 
@@ -219,7 +221,7 @@ class ProductForms {
 				$name = isset( $field['name'] ) ? sanitize_text_field( $field['name'] ) : '';
 				$type = isset( $field['type'] ) ? $field['type'] : 'text';
 
-				if ( ! isset( Fields::types()[ $type ] ) ) {
+				if ( ! isset( FieldHelpers::types()[ $type ] ) ) {
 					$type = 'text';
 				}
 

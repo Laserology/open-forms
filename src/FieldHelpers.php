@@ -13,7 +13,7 @@ defined( 'ABSPATH' ) || exit;
  * Handles the available field types and the shared helpers used by the
  * admin, frontend and checkout modules.
  */
-class Fields {
+class FieldHelpers {
 
 	/**
 	 * Registered field types.
@@ -179,6 +179,33 @@ class Fields {
 			default:
 				return sanitize_text_field( $value );
 		}
+	}
+
+	/**
+	 * Whether the token looks like the random hex keys generated on upload.
+	 *
+	 * @param string $token File token.
+	 * @return bool
+	 */
+	public static function is_valid_token( $token ) {
+		return (bool) preg_match( '/^[a-f0-9]{32}$/', $token );
+	}
+
+	/**
+	 * The readable stored files matching a token. Tokens are prefixed onto the
+	 * original file name, so glob catches every file stored under one token.
+	 *
+	 * @param string $token File token.
+	 * @return array
+	 */
+	public static function files_for_token( $token ) {
+		if ( ! self::is_valid_token( $token ) ) {
+			return array();
+		}
+
+		$match = glob( self::upload_dir() . '/' . $token . '-*' );
+
+		return array_values( array_filter( $match, 'is_file' ) );
 	}
 
 	/**
