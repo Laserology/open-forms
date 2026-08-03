@@ -1,3 +1,12 @@
+/**
+ * OpenForms frontend fields.
+ *
+ * Styled to follow the WooCommerce design language and to pick up the
+ * theme's own colour palette. Colours are read from the theme's block
+ * palette CSS custom properties when they exist and fall back to neutral
+ * WooCommerce-style values otherwise, so the fields always look at home.
+ */
+
 .openforms-fields {
 	margin: 0 0 1.5em;
 }
@@ -6,34 +15,69 @@
 	margin: 0 0 1em;
 }
 
+.openforms-fields .openforms-field:last-child {
+	margin-bottom: 0;
+}
+
 .openforms-fields .openforms-label {
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 0.4em;
+	color: var(--wp--preset--color--contrast, #111111);
+	font-size: 1em;
+	font-weight: 600;
+	line-height: 1.4;
 }
 
 .openforms-fields .openforms-label .required {
-	color: #d63638;
+	color: var(--wp--preset--color--vivid-red, #d63638);
 }
 
 .openforms-fields .openforms-input {
 	display: block;
 	width: 100%;
 	max-width: 480px;
+	box-sizing: border-box;
+	padding: 0.618em 1em;
+	border: 1px solid var(--wp--preset--color--contrast-20, #d1d1d1);
+	border-radius: 3px;
+	background-color: var(--wp--preset--color--base, #ffffff);
+	color: var(--wp--preset--color--contrast, #111111);
+	font-family: inherit;
+	font-size: 1em;
+	line-height: 1.5;
 }
 
-.openforms-item-meta {
-	margin: 0.5em 0 0;
-	border-collapse: collapse;
+.openforms-fields .openforms-input:focus {
+	border-color: var(--wp--preset--color--primary, #96588a);
+	outline: 2px solid var(--wp--preset--color--primary, #96588a);
+	outline-offset: -2px;
 }
 
-.openforms-item-meta th,
-.openforms-item-meta td {
-	padding: 2px 8px 2px 0;
-	vertical-align: top;
+.openforms-fields .openforms-input::placeholder {
+	color: var(--wp--preset--color--contrast-40, #8a8a8a);
 }
 
-.openforms-item-meta th {
-	font-weight: 600;
-	text-align: left;
-	white-space: nowrap;
+/* File uploads: match the picker button to the theme's button language. */
+.openforms-fields input[type="file"].openforms-input {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--wp--preset--color--contrast, #111111);
+}
+
+.openforms-fields input[type="file"].openforms-input::file-selector-button {
+	margin-right: 1em;
+	padding: 0.618em 1em;
+	border: 1px solid var(--wp--preset--color--primary, #96588a);
+	border-radius: 3px;
+	background-color: var(--wp--preset--color--primary, #96588a);
+	color: var(--wp--preset--color--base, #ffffff);
+	font-family: inherit;
+	font-size: 1em;
+	line-height: 1.5;
+	cursor: pointer;
+}
+
+.openforms-fields input[type="file"].openforms-input::file-selector-button:hover {
+	filter: brightness(1.1);
 }

@@ -12,7 +12,7 @@ use OpenForms\FieldHelpers;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Meta box (product) and panel (variation) that manage the field list.
+ * Product data tab (product) and panel (variation) that manage the field list.
  */
 class ProductSettings {
 
@@ -20,7 +20,8 @@ class ProductSettings {
 	 * Constructor.
 	 */
 	public function __construct() {
-		add_action( 'add_meta_boxes', array( $this, 'add_meta_box' ) );
+		add_filter( 'woocommerce_product_data_tabs', array( $this, 'add_tab' ) );
+		add_action( 'woocommerce_product_data_panels', array( $this, 'product_data_panel' ) );
 		add_action( 'woocommerce_product_after_variable_attributes', array( $this, 'variation_panel' ), 10, 3 );
 		add_action( 'woocommerce_process_product_meta', array( $this, 'save_product' ) );
 		add_action( 'woocommerce_save_product_variation', array( $this, 'save_variation' ), 10, 2 );
@@ -28,25 +29,31 @@ class ProductSettings {
 	}
 
 	/**
-	 * Register the product meta box.
+	 * Register the OpenForms tab in the product data metabox.
+	 *
+	 * @param array $tabs Existing product data tabs.
+	 * @return array
 	 */
-	public function add_meta_box() {
-		add_meta_box(
-			'openforms-product-fields',
-			__( 'OpenForms', 'openforms' ),
-			array( $this, 'render_meta_box' ),
-			'product',
-			'normal',
-			'high'
+	public function add_tab( $tabs ) {
+		$tabs['openforms'] = array(
+			'label'    => __( 'OpenForms', 'openforms' ),
+			'target'   => 'openforms_product_data',
+			'priority' => 65,
 		);
+
+		return $tabs;
 	}
 
 	/**
-	 * Render the product meta box.
-	 *
-	 * @param \WP_Post $post Current post.
+	 * Render the OpenForms product data panel.
 	 */
-	public function render_meta_box( $post ) {
+	public function product_data_panel() {
+		global $post;
+
+		echo '<div id="openforms_product_data" class="panel woocommerce_options_panel">';
+
+		// Product-level nonce so the panel config can only be saved by an
+		// authorized request.
 		wp_nonce_field( 'openforms_save_fields', 'openforms_nonce' );
 
 		$enabled = 'yes' === get_post_meta( $post->ID, '_openforms_enabled', true );
@@ -57,6 +64,8 @@ class ProductSettings {
 		echo '</p>';
 
 		$this->render_config( $post->ID, $enabled, $fields, 'openforms' );
+
+		echo '</div>';
 	}
 
 	/**
@@ -98,10 +107,8 @@ class ProductSettings {
 		echo '<div class="openforms-config">';
 
 		echo '<p class="form-field openforms-enabled">';
-		echo '<label for="openforms-enabled-' . esc_attr( $post_id ) . '">';
-		echo '<input type="checkbox" id="openforms-enabled-' . esc_attr( $post_id ) . '" name="' . esc_attr( $prefix ) . '[enabled]" value="1"' . checked( $enabled, true, false ) . ' /> ';
-		echo esc_html__( 'Enable forms', 'openforms' );
-		echo '</label>';
+		echo '<label for="openforms-enabled-' . esc_attr( $post_id ) . '">' . esc_html__( 'Enable forms', 'openforms' ) . '</label>';
+		echo '<input type="checkbox" class="checkbox" id="openforms-enabled-' . esc_attr( $post_id ) . '" name="' . esc_attr( $prefix ) . '[enabled]" value="1"' . checked( $enabled, true, false ) . ' />';
 		echo '</p>';
 
 		echo '<table class="widefat striped openforms-fields-table">';

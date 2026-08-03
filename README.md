@@ -7,7 +7,7 @@ OpenForms is a lightweight WordPress plugin that lets store owners attach config
 The goal of this plugin is to provied a bare-bones, simple, and easy no-nonsense product forms solution for stores of any size. This plugin does not and likely will never have a "Pro" version. The goal of the project is to be the most open source friendly as possible.
 
 - **Plugin name:** OpenForms
-- **Version:** 1.0.2
+- **Version:** 1.0.7
 - **Requires:** WordPress, WooCommerce, PHP 7.4+
 - **License:** [GPL-2.0-or-later](LICENSE)
 
@@ -48,7 +48,7 @@ Every field can be marked as **required**. Any submitted file goes through WordP
 
 ### 1. Configure a form on a product
 
-Edit any product and scroll to the **OpenForms** meta box:
+Edit any product and open the **OpenForms** tab under **Product data**:
 
 - Tick **Enable forms** to activate the form on the product page.
 - Use **Add Field** to create rows, choosing a name, a field type, and whether the field is required.
@@ -91,7 +91,7 @@ src/
 ├── FieldHelpers.php       Shared field registry + render/validate/sanitize/upload helpers
 ├── DataHelpers.php        Shared helpers for the form payload JSON (decode, tokens, file render)
 ├── Admin/
-│   └── ProductSettings.php  Product meta box + variation panel, persistence, admin JS
+│   └── ProductSettings.php  Product data tab + variation panel, persistence, admin JS
 ├── Frontend/
 │   └── ProductForm.php     Renders fields above the add-to-cart button
 ├── Services/
@@ -128,7 +128,7 @@ The `DataHelpers` class owns the JSON payload stored on cart items and order lin
 
 ### 1. Admin configuration — `src/Admin/ProductSettings.php`
 
-- Registers a **"OpenForms" meta box** on the product edit screen and a **per-variation panel** inside the variable product editor.
+- Registers an **OpenForms** tab inside the **Product data** metabox on the product edit screen and a **per-variation panel** inside the variable product editor.
 - Renders an "Enable forms" checkbox plus a repeatable field table (name / type / required / remove). A hidden template `<tr>` with an `INDEX` placeholder is used by `assets/js/admin.js` to add rows.
 - Saves config via `woocommerce_process_product_meta` and `woocommerce_save_product_variation` into post meta:
   - `_openforms_enabled` → `'yes'` / `'no'`
