@@ -165,9 +165,13 @@ The submitted data travels through the WooCommerce pipeline via these hooks:
 
 ### 5. Private file delivery — `src/Services/Download.php`
 
-Uploaded files are stored in a dedicated `openforms` folder under `wp-content/uploads` with an `.htaccess` that denies direct web access. The plugin writes its own protection files (`index.php` and `.htaccess`) when the folder is first created, and every file is stored under a random, unguessable token instead of its real name.
+Uploaded files are stored in a dedicated `openforms` folder under `wp-content/uploads`. The plugin writes its own protection files there (`index.php` and `.htaccess` denying direct web access) and re-creates any that go missing on the next upload or download, and every file is stored under a random, unguessable token instead of its real name. Uploads are capped at 75MB by default.
 
-Files are only served through the `?openforms_download=<token>` endpoint (`template_redirect`). The request is allowed when the current user can `edit_shop_orders` (admin / shop staff) or when the token is still present in the shopper's active cart — so the cart and checkout links work while the token hasn't been placed on an order yet. Files are always streamed as a forced download with `X-Content-Type-Options: nosniff` so stored content can never render inside a browser origin.
+`.htaccess` is only honoured by Apache. On Nginx (or Apache with `AllowOverride none`) add the equivalent server rule — `location ^~ /wp-content/uploads/openforms/ { deny all; }` — or point the storage folder outside the document root with the `openforms_upload_dir` filter. The size ceiling is filterable through `openforms_max_upload_size`.
+
+Files are only served through the `?openforms_download=<token>` endpoint (`template_redirect`). The request is allowed when the token is still present in the shopper's active cart, when the current user can `edit_shop_orders` (admin / shop staff), or when the file is a quote attachment and the user can edit the quote that owns it — so the cart and checkout links work while the token hasn't been placed on an order yet. Files are always streamed as a forced download with `X-Content-Type-Options: nosniff` so stored content can never render inside a browser origin.
+
+Quote attachments are additionally limited to a fixed allow-list of types — images, PDF, Office documents and zip; see `QuoteHandler::attachment_mimes()` — and an anonymous submission may only attach a file once every 10 minutes per IP (filterable through `openforms_quote_upload_interval`; set it to `0` to disable).
 
 ### 6. Orphan cleanup — `src/Services/Cleanup.php`
 

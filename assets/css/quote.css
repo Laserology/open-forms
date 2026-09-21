@@ -128,6 +128,48 @@
 	resize: vertical;
 }
 
+/* File uploads: the picker is a real element carrying the core button classes
+ * (wp-element-button), so it follows the site's button theme. The native
+ * control stays in the DOM for keyboard access but is visually hidden. */
+.openforms-quote__file {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75em;
+}
+
+.openforms-quote__file-input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+}
+
+.openforms-quote__file-button {
+	display: inline-block;
+	cursor: pointer;
+}
+
+/* Keep the focus ring on the visible button, since the input it belongs to is
+ * the hidden native control. */
+.openforms-quote__file-input:focus-visible + .openforms-quote__file-button {
+	outline: 2px solid var(--wp--preset--color--primary, #96588a);
+	outline-offset: 2px;
+}
+
+/* Fallback for themes that do not style the button element. :where() carries
+ * no specificity, so the theme's own button rules always win over this. */
+:where(.openforms-quote__file-button) {
+	padding: 0.7em 1.1em;
+	border: 1px solid transparent;
+	border-radius: 8px;
+	background-color: var(--wp--preset--color--primary, #96588a);
+	color: var(--wp--preset--color--base, #ffffff);
+	font-weight: 600;
+	line-height: 1.5;
+}
+
 .openforms-quote__input:focus,
 .openforms-quote__select:focus,
 .openforms-quote__textarea:focus {

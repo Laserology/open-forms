@@ -87,9 +87,15 @@ class GetQuote {
 				'editor_script' => 'openforms-quote-editor',
 				'api_version'   => 3,
 				'attributes'    => array(
-					'key' => array(
+					'key'   => array(
 						'type'    => 'string',
 						'default' => 'name',
+					),
+					// Custom input title. An empty value falls back to the built-in
+					// label for the field type.
+					'label' => array(
+						'type'    => 'string',
+						'default' => '',
 					),
 				),
 				'supports' => array(
@@ -151,8 +157,14 @@ class GetQuote {
 		$notice  = $this->notice();
 		$fields  = $this->submit_button( (string) $content );
 
+		// The picker is a themed button and the native control is hidden, so a
+		// small script mirrors the chosen file name beside the button.
+		wp_enqueue_script( 'openforms-quote-frontend', OPENFORMS_URL . 'assets/js/quote.js', array(), OPENFORMS_VERSION, true );
+
 		$source = (int) get_the_ID();
-		$form   = '<form class="openforms-quote__form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		// The form is multipart so a file upload field can post alongside the
+		// text fields.
+		$form   = '<form class="openforms-quote__form" method="post" enctype="multipart/form-data" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		$form  .= '<input type="hidden" name="action" value="openforms_quote" />';
 		$form  .= $source ? '<input type="hidden" name="openforms_quote[source]" value="' . esc_attr( $source ) . '" />' : '';
 		$form  .= wp_nonce_field( 'openforms_quote_submit', 'openforms_quote_nonce', true, false );
@@ -182,6 +194,8 @@ class GetQuote {
 				return $this->select_field( 'budget', __( 'Estimated Budget', 'openforms' ), QuoteHandler::budget_options(), false, false, $attributes );
 			case 'message':
 				return $this->field( 'message', __( 'Project Details', 'openforms' ), 'textarea', true, true, $attributes );
+			case 'file':
+				return $this->file_field( 'file', __( 'File Upload', 'openforms' ), $attributes );
 		}
 
 		return '';
@@ -218,6 +232,10 @@ class GetQuote {
 	 * @return string
 	 */
 	private function field( string $key, string $label, string $input, bool $required, bool $full, array $attributes = array() ): string {
+		// A custom input title set on the block overrides the built-in label.
+		$custom_label = $this->custom_label( $attributes );
+		$label        = '' !== $custom_label ? $custom_label : $label;
+
 		$support = \WP_Block_Supports::get_instance()->apply_block_supports();
 		$class   = isset( $support['class'] ) ? ' ' . $support['class'] : '';
 		$style   = isset( $support['style'] ) ? ' style="' . esc_attr( $support['style'] ) . '"' : '';
@@ -246,6 +264,45 @@ class GetQuote {
 	}
 
 	/**
+	 * Render the file upload field. The native control is hidden and the picker
+	 * is a label carrying the core button classes, so the button picks up the
+	 * site's button theme instead of hard-coded colours.
+	 *
+	 * @param string $key        Input key.
+	 * @param string $label      Field label.
+	 * @param array  $attributes Block attributes.
+	 * @return string
+	 */
+	private function file_field( string $key, string $label, array $attributes = array() ): string {
+		// A custom input title set on the block overrides the built-in label.
+		$custom_label = $this->custom_label( $attributes );
+		$label        = '' !== $custom_label ? $custom_label : $label;
+
+		$support = \WP_Block_Supports::get_instance()->apply_block_supports();
+		$class   = isset( $support['class'] ) ? ' ' . $support['class'] : '';
+		$style   = isset( $support['style'] ) ? ' style="' . esc_attr( $support['style'] ) . '"' : '';
+
+		// The border follows the picker button, like it follows the input of
+		// every other field.
+		$border       = $this->field_border( $attributes );
+		$button_class = $border['class'] ? ' ' . $border['class'] : '';
+		$button_style = $border['style'] ? ' style="' . esc_attr( $border['style'] ) . '"' : '';
+
+		$id = 'openforms-quote-' . $key;
+
+		$out  = '<p class="openforms-quote__field openforms-quote__field--full' . $class . '"' . $style . '>';
+		$out .= '<span class="openforms-quote__label" id="' . esc_attr( $id ) . '-label">' . esc_html( $label ) . '</span>';
+		$out .= '<span class="openforms-quote__file">';
+		$out .= '<input type="file" class="openforms-quote__file-input" id="' . esc_attr( $id ) . '" name="openforms_quote[' . esc_attr( $key ) . ']" accept="' . esc_attr( QuoteHandler::attachment_accept() ) . '" aria-labelledby="' . esc_attr( $id ) . '-label" />';
+		$out .= '<label class="openforms-quote__file-button wp-block-button__link wp-element-button' . $button_class . '"' . $button_style . ' for="' . esc_attr( $id ) . '">' . esc_html__( 'Choose a file', 'openforms' ) . '</label>';
+		$out .= '<span class="openforms-quote__file-name" aria-live="polite"></span>';
+		$out .= '</span>';
+		$out .= '</p>';
+
+		return $out;
+	}
+
+	/**
 	 * Render a select field.
 	 *
 	 * @param string $key      Input key.
@@ -256,6 +313,10 @@ class GetQuote {
 	 * @return string
 	 */
 	private function select_field( string $key, string $label, array $options, bool $required, bool $full, array $attributes = array() ): string {
+		// A custom input title set on the block overrides the built-in label.
+		$custom_label = $this->custom_label( $attributes );
+		$label        = '' !== $custom_label ? $custom_label : $label;
+
 		$support = \WP_Block_Supports::get_instance()->apply_block_supports();
 		$class   = isset( $support['class'] ) ? ' ' . $support['class'] : '';
 		$style   = isset( $support['style'] ) ? ' style="' . esc_attr( $support['style'] ) . '"' : '';
@@ -354,6 +415,19 @@ class GetQuote {
 	}
 
 	/**
+	 * The custom input title set on the block, or an empty string when the
+	 * field should keep its built-in label.
+	 *
+	 * @param array $attributes Block attributes.
+	 * @return string
+	 */
+	private function custom_label( array $attributes ): string {
+		$label = isset( $attributes['label'] ) ? trim( (string) $attributes['label'] ) : '';
+
+		return '' !== $label ? sanitize_text_field( $label ) : '';
+	}
+
+	/**
 	 * The success or error banner shown after a form submission redirect.
 	 *
 	 * @return string
@@ -363,6 +437,14 @@ class GetQuote {
 
 		if ( 'success' === $type ) {
 			return '<p class="openforms-quote__notice openforms-quote__notice--success">' . esc_html__( 'Thanks! Your quote request has been sent. We will be in touch shortly.', 'openforms' ) . '</p>';
+		}
+
+		if ( 'file' === $type ) {
+			return '<p class="openforms-quote__notice openforms-quote__notice--error">' . esc_html__( 'Sorry, the attached file could not be accepted. Please check its type and size and try again.', 'openforms' ) . '</p>';
+		}
+
+		if ( 'throttle' === $type ) {
+			return '<p class="openforms-quote__notice openforms-quote__notice--error">' . esc_html__( 'Sorry, you can only attach a file once every few minutes. Please try again shortly.', 'openforms' ) . '</p>';
 		}
 
 		if ( 'error' === $type ) {
@@ -384,7 +466,7 @@ class GetQuote {
 
 		$type = sanitize_key( wp_unslash( $_GET['openforms_quote'] ) );
 
-		return in_array( $type, array( 'success', 'error' ), true ) ? $type : '';
+		return in_array( $type, array( 'success', 'error', 'file', 'throttle' ), true ) ? $type : '';
 	}
 
 	/**

@@ -45,7 +45,7 @@ class Download {
 			wp_die( esc_html__( 'File not found.', 'openforms' ), '', array( 'response' => 404 ) );
 		}
 
-		if ( ! current_user_can( 'edit_shop_orders' ) && ! $this->token_in_cart( $token ) ) {
+		if ( ! $this->can_download( $token ) && ! $this->token_in_cart( $token ) ) {
 			wp_die( esc_html__( 'You are not allowed to download this file.', 'openforms' ), '', array( 'response' => 403 ) );
 		}
 
@@ -62,6 +62,46 @@ class Download {
 		$files = FieldHelpers::files_for_token( $token );
 
 		return ! empty( $files ) && is_readable( $files[0] ) ? $files[0] : null;
+	}
+
+	/**
+	 * Whether the current user may download a token that is not in their cart.
+	 * Access follows the record the file belongs to: order attachments are for
+	 * shop staff, and a quote attachment is for whoever can edit that quote.
+	 *
+	 * @param string $token File token.
+	 * @return bool
+	 */
+	private function can_download( string $token ): bool {
+		if ( current_user_can( 'edit_shop_orders' ) ) {
+			return true;
+		}
+
+		$quote_id = $this->quote_id_for_token( $token );
+
+		return $quote_id > 0 && current_user_can( 'edit_post', $quote_id );
+	}
+
+	/**
+	 * The quote that owns a file token, or 0 when no quote references it. The
+	 * token is random, so matching it anywhere in the stored file details is
+	 * enough to identify the quote holding it.
+	 *
+	 * @param string $token File token.
+	 * @return int
+	 */
+	private function quote_id_for_token( string $token ): int {
+		global $wpdb;
+
+		$post_id = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value LIKE %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				QuoteHandler::FILE_META,
+				'%' . $wpdb->esc_like( $token ) . '%'
+			)
+		);
+
+		return (int) $post_id;
 	}
 
 	/**

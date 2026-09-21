@@ -40,6 +40,9 @@ class Cleanup {
 		// handler removes the order line items we need to read.
 		add_action( 'woocommerce_before_delete_order', array( $this, 'cleanup_order' ), 1, 2 );
 		add_action( 'before_delete_post', array( $this, 'cleanup_order_post' ), 1 );
+
+		// Quote attachments are private to their quote, so they go with it.
+		add_action( 'before_delete_post', array( $this, 'cleanup_quote_post' ), 1 );
 	}
 
 	/**
@@ -149,6 +152,24 @@ class Cleanup {
 	public function cleanup_order_post( int $post_id ): void {
 		if ( 'shop_order' === get_post_type( $post_id ) ) {
 			$this->cleanup_order( $post_id );
+		}
+	}
+
+	/**
+	 * Delete the attachment stored for a quote that is about to be deleted. The
+	 * token only ever belongs to that quote, so no other reference is checked.
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	public function cleanup_quote_post( int $post_id ): void {
+		if ( 'openforms_quote' !== get_post_type( $post_id ) ) {
+			return;
+		}
+
+		$file = get_post_meta( $post_id, QuoteHandler::FILE_META, true );
+
+		if ( is_array( $file ) && ! empty( $file['file_key'] ) ) {
+			$this->delete_file( $file['file_key'] );
 		}
 	}
 

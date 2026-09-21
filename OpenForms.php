@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/Laserology/open-forms/
  * Description: Add modular forms to WooCommerce products and variations. Form data and file uploads are stored against the order for easy review.
  * License: GPL v2 or later
- * Version: 1.9.1
+ * Version: 1.9.4
  * Author: Evan
  * Author URI: https://laserology.net/
  * Requires Plugins: woocommerce
@@ -44,7 +44,7 @@ class OpenForms {
 // Initialize the plugin once WooCommerce has loaded.
 add_action( 'plugins_loaded', function() {
 	if ( ! defined( 'OPENFORMS_VERSION' ) ) {
-		define( 'OPENFORMS_VERSION', '1.9.1' );
+		define( 'OPENFORMS_VERSION', '1.9.4' );
 	}
 	if ( ! defined( 'OPENFORMS_FILE' ) ) {
 		define( 'OPENFORMS_FILE', __FILE__ );

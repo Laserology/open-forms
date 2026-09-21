@@ -6,6 +6,9 @@
 
 namespace OpenForms\Services;
 
+use OpenForms\DataHelpers;
+use OpenForms\FieldHelpers;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -14,6 +17,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Handles the quote form submission and the admin viewer for stored quotes.
  */
 class QuoteHandler {
+
+	/**
+	 * Post meta holding the details of a quote's uploaded attachment.
+	 *
+	 * @var string
+	 */
+	const FILE_META = '_openforms_quote_file';
 
 	/**
 	 * Constructor.
@@ -39,6 +49,69 @@ class QuoteHandler {
 			__( '$5,000 - $10,000', 'openforms' ),
 			__( '$10,000+', 'openforms' ),
 		);
+	}
+
+	/**
+	 * The file types accepted as a quote attachment, as an extension => mime map
+	 * for wp_check_filetype_and_ext(). Kept deliberately narrow: a quote only
+	 * needs a document or an image, and a form that anyone can submit should not
+	 * accept everything the site happens to allow.
+	 *
+	 * @return array
+	 */
+	public static function attachment_mimes(): array {
+		/**
+		 * Filters the file types accepted as a quote attachment.
+		 *
+		 * @param array $mimes Extension => mime map.
+		 */
+		return apply_filters(
+			'openforms_quote_attachment_mimes',
+			array(
+				'jpg|jpeg|jpe' => 'image/jpeg',
+				'gif'          => 'image/gif',
+				'png'          => 'image/png',
+				'webp'         => 'image/webp',
+				'pdf'          => 'application/pdf',
+				'doc|docx'     => 'application/msword',
+				'xls|xlsx'     => 'application/vnd.ms-excel',
+				'zip'          => 'application/zip',
+			)
+		);
+	}
+
+	/**
+	 * How long a requester must wait between quote attachments, in seconds. A
+	 * value of 0 disables the limit.
+	 *
+	 * @return int
+	 */
+	public static function upload_interval(): int {
+		/**
+		 * Filters the minimum number of seconds between anonymous quote uploads
+		 * from the same IP.
+		 *
+		 * @param int $seconds Seconds between uploads. 0 disables the limit.
+		 */
+		return (int) apply_filters( 'openforms_quote_upload_interval', 10 * MINUTE_IN_SECONDS );
+	}
+
+	/**
+	 * The accept attribute value for the attachment picker, built from the allowed
+	 * types so the picker and the server checks never drift apart.
+	 *
+	 * @return string
+	 */
+	public static function attachment_accept(): string {
+		$accept = array();
+
+		foreach ( array_keys( self::attachment_mimes() ) as $extensions ) {
+			foreach ( explode( '|', $extensions ) as $extension ) {
+				$accept[] = '.' . $extension;
+			}
+		}
+
+		return implode( ',', $accept );
 	}
 
 	/**
@@ -75,8 +148,8 @@ class QuoteHandler {
 	public function handle_submit(): void {
 		$referer = wp_get_referer() ? wp_get_referer() : home_url( '/' );
 
-		$fail = function () use ( $referer ) {
-			wp_safe_redirect( add_query_arg( 'openforms_quote', 'error', $referer ) );
+		$fail = function ( string $type = 'error' ) use ( $referer ) {
+			wp_safe_redirect( add_query_arg( 'openforms_quote', $type, $referer ) );
 			exit;
 		};
 
@@ -105,6 +178,27 @@ class QuoteHandler {
 			$budget = '';
 		}
 
+		// The form is multipart, so an attachment can arrive alongside the text
+		// fields. It is stored in the private folder before the quote is created;
+		// a rejected upload aborts the submission.
+		$file = null;
+
+		if ( ! empty( $_FILES['openforms_quote']['name']['file'] ) ) {
+			// A form anyone can submit must not be usable to fill the disk, so a
+			// single IP can only attach a file once per interval.
+			if ( $this->upload_throttled() ) {
+				$fail( 'throttle' );
+			}
+
+			$file = FieldHelpers::upload_file( 'openforms_quote', 'file', self::attachment_mimes() );
+
+			if ( ! $file ) {
+				$fail( 'file' );
+			}
+
+			$this->throttle_upload();
+		}
+
 		$post_id = wp_insert_post(
 			array(
 				'post_type'   => 'openforms_quote',
@@ -114,6 +208,11 @@ class QuoteHandler {
 		);
 
 		if ( ! $post_id || is_wp_error( $post_id ) ) {
+			// Do not leave the stored upload behind when the quote was not created.
+			if ( $file && ! empty( $file['file_path'] ) ) {
+				unlink( $file['file_path'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			}
+
 			$fail();
 		}
 
@@ -128,12 +227,65 @@ class QuoteHandler {
 			)
 		);
 
+		if ( $file ) {
+			update_post_meta( $post_id, self::FILE_META, $file );
+		}
+
 		if ( $source ) {
 			update_post_meta( $post_id, '_openforms_quote_source', $source );
 		}
 
 		wp_safe_redirect( add_query_arg( 'openforms_quote', 'success', $referer ) );
 		exit;
+	}
+
+	/**
+	 * Whether the requester has attached a quote file too recently.
+	 *
+	 * @return bool
+	 */
+	private function upload_throttled(): bool {
+		$key = $this->throttle_key();
+
+		return '' !== $key && (bool) get_transient( $key );
+	}
+
+	/**
+	 * Start the requester's cooldown once a file has been stored.
+	 */
+	private function throttle_upload(): void {
+		$key = $this->throttle_key();
+
+		if ( '' !== $key ) {
+			set_transient( $key, 1, self::upload_interval() );
+		}
+	}
+
+	/**
+	 * The transient key a requester's cooldown is stored under, or an empty string
+	 * when the limit does not apply to them. It applies to anonymous submissions
+	 * only: it is skipped when the interval is disabled, when the IP is unknown,
+	 * and for logged in users who can already publish content (which also keeps
+	 * the form usable while testing). The IP is hashed, so no address is written
+	 * to the database.
+	 *
+	 * @return string
+	 */
+	private function throttle_key(): string {
+		if ( self::upload_interval() <= 0 || current_user_can( 'edit_posts' ) ) {
+			return '';
+		}
+
+		// WooCommerce resolves the client IP behind proxies and CDNs; REMOTE_ADDR
+		// is the fallback when it cannot.
+		$ip = class_exists( 'WC_Geolocation' ) ? (string) \WC_Geolocation::get_ip_address() : '';
+
+		if ( '' === $ip && ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
+			$remote = (string) wp_unslash( $_SERVER['REMOTE_ADDR'] );
+			$ip     = filter_var( $remote, FILTER_VALIDATE_IP ) ? $remote : '';
+		}
+
+		return '' === $ip ? '' : 'openforms_quote_upload_' . md5( $ip );
 	}
 
 	/**
@@ -208,6 +360,7 @@ class QuoteHandler {
 	public function render_meta_box( \WP_Post $post ): void {
 		$data   = $this->data( $post->ID );
 		$source = (int) get_post_meta( $post->ID, '_openforms_quote_source', true );
+		$file   = get_post_meta( $post->ID, self::FILE_META, true );
 
 		$rows = array(
 			'name'    => array( __( 'Name', 'openforms' ), get_the_title( $post ) ),
@@ -226,6 +379,10 @@ class QuoteHandler {
 			$value                = '' !== trim( $value ) ? $value : '&mdash;';
 
 			echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . $value . '</td></tr>';
+		}
+
+		if ( is_array( $file ) && ! empty( $file['file_key'] ) ) {
+			echo '<tr><th scope="row">' . esc_html__( 'Attachment', 'openforms' ) . '</th><td>' . DataHelpers::render_file( $file, true, true ) . '</td></tr>';
 		}
 
 		if ( $source && get_post( $source ) ) {

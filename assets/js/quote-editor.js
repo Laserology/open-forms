@@ -11,6 +11,11 @@
 	var InnerBlocks = wp.blockEditor.InnerBlocks;
 	var useBlockProps = wp.blockEditor.useBlockProps;
 	var useBorderProps = wp.blockEditor.__experimentalUseBorderProps || wp.blockEditor.useBorderProps;
+	var InspectorControls = wp.blockEditor.InspectorControls;
+	var PanelBody = wp.components.PanelBody;
+	var SelectControl = wp.components.SelectControl;
+	var TextControl = wp.components.TextControl;
+	var Fragment = wp.element.Fragment;
 	var __ = wp.i18n.__;
 
 	var FIELDS = {
@@ -18,7 +23,8 @@
 		email:   { label: __('Email', 'openforms'), type: 'email', required: true },
 		phone:   { label: __('Phone', 'openforms'), type: 'tel', required: false },
 		budget:  { label: __('Estimated Budget', 'openforms'), type: 'select', required: false },
-		message: { label: __('Project Details', 'openforms'), type: 'textarea', required: true, full: true }
+		message: { label: __('Project Details', 'openforms'), type: 'textarea', required: true, full: true },
+		file:    { label: __('File Upload', 'openforms'), type: 'file', required: false, full: true }
 	};
 
 	var ALLOWED = ['core/heading', 'core/paragraph', 'core/group', 'core/stack', 'openforms/quote-field', 'core/buttons', 'core/button'];
@@ -30,6 +36,7 @@
 		['openforms/quote-field', { key: 'phone' }],
 		['openforms/quote-field', { key: 'budget' }],
 		['openforms/quote-field', { key: 'message' }],
+		['openforms/quote-field', { key: 'file' }],
 		['core/buttons', {}, [['core/button', { text: __('Request a Quote', 'openforms') }]]]
 	];
 
@@ -65,7 +72,9 @@
 		parent: ['openforms/get-quote'],
 		apiVersion: 3,
 		attributes: {
-			key: { type: 'string', default: 'name' }
+			key: { type: 'string', default: 'name' },
+			// Custom input title. Empty falls back to the built-in field label.
+			label: { type: 'string', default: '' }
 		},
 		supports: {
 			color: { text: true, background: true },
@@ -78,6 +87,8 @@
 		},
 		edit: function (props) {
 			var field = FIELDS[props.attributes.key] || FIELDS.name;
+			// A custom title set on the block replaces the built-in field label.
+			var title = props.attributes.label || field.label;
 			var full = field.full ? ' openforms-quote__field--full' : '';
 			var blockProps = useBlockProps({ className: 'openforms-quote__field' + full });
 			// Border serialization is skipped on the wrapper so the border can
@@ -95,15 +106,48 @@
 			} else if (field.type === 'select') {
 				inputProps.className = 'openforms-quote__select' + inputClass;
 				input = el('select', inputProps, el('option', null, ''));
+			} else if (field.type === 'file') {
+				// Mirrors the frontend: a themed button labels the hidden input.
+				input = el('span', { className: 'openforms-quote__file' },
+					el('span', { className: 'openforms-quote__file-button wp-block-button__link wp-element-button' + inputClass, style: borderProps.style }, __('Choose a file', 'openforms'))
+				);
 			} else {
 				inputProps.type = field.type;
 				inputProps.className = 'openforms-quote__input' + inputClass;
 				input = el('input', inputProps);
 			}
 
-			return el('p', blockProps,
-				el('label', { className: 'openforms-quote__label', htmlFor: 'openforms-quote-' + props.attributes.key }, field.label, mark),
-				input
+			// The field type is picked in the sidebar so editors can choose any of
+			// the registered fields, including the file upload field.
+			var inspector = el(InspectorControls, null,
+				el(PanelBody, { title: __('Field', 'openforms') },
+					el(TextControl, {
+						label: __('Title', 'openforms'),
+						value: props.attributes.label,
+						placeholder: field.label,
+						onChange: function (label) {
+							props.setAttributes({ label: label });
+						}
+					}),
+					el(SelectControl, {
+						label: __('Field type', 'openforms'),
+						value: props.attributes.key,
+						options: Object.keys(FIELDS).map(function (key) {
+							return { label: FIELDS[key].label, value: key };
+						}),
+						onChange: function (key) {
+							props.setAttributes({ key: key });
+						}
+					})
+				)
+			);
+
+			return el(Fragment, null,
+				inspector,
+				el('p', blockProps,
+					el('label', { className: 'openforms-quote__label', htmlFor: 'openforms-quote-' + props.attributes.key }, title, mark),
+					input
+				)
 			);
 		},
 		save: function () {
