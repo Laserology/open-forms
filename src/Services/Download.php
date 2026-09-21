@@ -1,10 +1,8 @@
 <?php
 /**
- * Authorized file delivery. Uploaded files are stored outside the public
- * uploads path and are only handed out to shop staff or to the shopper whose
- * active cart still holds the file's token.
- *
- * @package OpenForms
+ * Download: authorized file delivery. Uploaded files are stored outside the
+ * public uploads path and are only handed out to shop staff or to the shopper
+ * whose active cart still holds the file's token.
  */
 
 namespace OpenForms\Services;
@@ -12,7 +10,9 @@ namespace OpenForms\Services;
 use OpenForms\DataHelpers;
 use OpenForms\FieldHelpers;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * Serves files from the private uploads folder through a download endpoint.
@@ -29,8 +29,10 @@ class Download {
 	/**
 	 * Serve the requested file when a valid token is present and the current
 	 * user is allowed to see it.
+	 *
+	 * @return void
 	 */
-	public function maybe_download() {
+	public function maybe_download(): void {
 		$token = isset( $_GET['openforms_download'] ) ? sanitize_text_field( wp_unslash( $_GET['openforms_download'] ) ) : '';
 
 		if ( '' === $token || ! FieldHelpers::is_valid_token( $token ) ) {
@@ -56,7 +58,7 @@ class Download {
 	 * @param string $token File token.
 	 * @return string|null
 	 */
-	private function find_file( $token ) {
+	private function find_file( string $token ): ?string {
 		$files = FieldHelpers::files_for_token( $token );
 
 		return ! empty( $files ) && is_readable( $files[0] ) ? $files[0] : null;
@@ -68,7 +70,7 @@ class Download {
 	 * @param string $token File token.
 	 * @return bool
 	 */
-	private function token_in_cart( $token ) {
+	private function token_in_cart( string $token ): bool {
 		if ( ! function_exists( 'WC' ) || ! isset( WC()->cart ) || ! is_object( WC()->cart ) ) {
 			return false;
 		}
@@ -94,7 +96,7 @@ class Download {
 	 *
 	 * @param string $file Absolute file path.
 	 */
-	private function serve( $file ) {
+	private function serve( string $file ): void {
 		if ( function_exists( 'nocache_headers' ) ) {
 			nocache_headers();
 		}

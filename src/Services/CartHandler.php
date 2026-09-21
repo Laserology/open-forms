@@ -1,9 +1,7 @@
 <?php
 /**
- * Checkout / cart. Validates submissions, stores them on the cart item and
- * displays them in the cart and checkout summaries.
- *
- * @package OpenForms
+ * CartHandler: checkout / cart. Validates submissions, stores them on the cart
+ * item and displays them in the cart and checkout summaries.
  */
 
 namespace OpenForms\Services;
@@ -11,7 +9,9 @@ namespace OpenForms\Services;
 use OpenForms\DataHelpers;
 use OpenForms\FieldHelpers;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * Handles the lifecycle of submitted form data between add to cart and the order.
@@ -37,7 +37,7 @@ class CartHandler {
 	 * @param int $variation_id Variation ID.
 	 * @return array
 	 */
-	private function fields_for( $product_id, $variation_id = 0 ) {
+	private function fields_for( int $product_id, int $variation_id = 0 ): array {
 		$fields = array();
 
 		foreach ( FieldHelpers::for_post( $product_id ) as $key => $field ) {
@@ -62,7 +62,7 @@ class CartHandler {
 	 * @param int  $variation_id Variation ID.
 	 * @return bool
 	 */
-	public function validate( $passed, $product_id, $quantity, $variation_id = 0 ) {
+	public function validate( bool $passed, int $product_id, int $quantity, int $variation_id = 0 ): bool {
 		$fields = $this->fields_for( $product_id, $variation_id );
 
 		if ( empty( $fields ) ) {
@@ -94,7 +94,7 @@ class CartHandler {
 	 * @param int   $variation_id   Variation ID.
 	 * @return array
 	 */
-	public function add_cart_item_data( $cart_item_data, $product_id, $variation_id = 0 ) {
+	public function add_cart_item_data( array $cart_item_data, int $product_id, int $variation_id = 0 ): array {
 		$fields = $this->fields_for( $product_id, $variation_id );
 
 		if ( empty( $fields ) ) {
@@ -142,7 +142,7 @@ class CartHandler {
 	 * @param array $cart_item Cart item.
 	 * @return array
 	 */
-	public function display_in_cart( $item_data, $cart_item ) {
+	public function display_in_cart( array $item_data, array $cart_item ): array {
 		if ( empty( $cart_item['openforms_data'] ) ) {
 			return $item_data;
 		}
@@ -164,7 +164,7 @@ class CartHandler {
 	 * @param array $meta Keys to hide.
 	 * @return array
 	 */
-	public function hide_order_itemmeta( $meta ) {
+	public function hide_order_itemmeta( array $meta ): array {
 		$meta[] = 'openforms_data';
 
 		return $meta;
@@ -178,8 +178,9 @@ class CartHandler {
 	 * @param string                 $cart_item_key Cart item key.
 	 * @param array                  $values        Cart item data.
 	 * @param \WC_Order              $order         Order object.
+	 * @return void
 	 */
-	public function save_order_item_meta( $item, $cart_item_key, $values, $order ) {
+	public function save_order_item_meta( \WC_Order_Item_Product $item, string $cart_item_key, array $values, \WC_Order $order ): void {
 		if ( ! empty( $values['openforms_data'] ) ) {
 			$item->add_meta_data( 'openforms_data', $values['openforms_data'] );
 		}

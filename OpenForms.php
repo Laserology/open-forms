@@ -1,43 +1,59 @@
 <?php
 /**
  * Plugin Name: OpenForms
+ * Plugin URI: https://github.com/Laserology/open-forms/
  * Description: Add modular forms to WooCommerce products and variations. Form data and file uploads are stored against the order for easy review.
- * Version:     1.0.7
- * Author:      Evan
- * License:     GPL-2.0-or-later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: openforms
- * Requires PHP: 7.4
+ * License: GPL v2 or later
+ * Version: 1.9.1
+ * Author: Evan
+ * Author URI: https://laserology.net/
  * Requires Plugins: woocommerce
+ * Text Domain: openforms
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'OPENFORMS_VERSION', '1.0.7' );
-define( 'OPENFORMS_FILE', __FILE__ );
-define( 'OPENFORMS_PATH', plugin_dir_path( __FILE__ ) );
-define( 'OPENFORMS_URL', plugin_dir_url( __FILE__ ) );
+if ( version_compare( PHP_VERSION, '8.0', '<' ) ) {
+	add_action( 'admin_notices', function() {
+		printf(
+			'<div class="notice notice-error"><p>%s</p></div>',
+			sprintf(
+				/* translators: %s: The current PHP version running on the server. */
+				esc_html__( 'OpenForms requires PHP 8.0 or later. Your server is running PHP %s', 'openforms' ),
+				esc_html( PHP_VERSION )
+			)
+		);
+	} );
+	return;
+}
 
-/**
- * PSR-4 style autoloader for the OpenForms\ namespace.
- */
-spl_autoload_register(
-	function ( $class ) {
-		$prefix = 'OpenForms\\';
+class OpenForms {
 
-		if ( strpos( $class, $prefix ) !== 0 ) {
-			return;
-		}
-
-		$path = str_replace( '\\', '/', substr( $class, strlen( $prefix ) ) );
-		$file = OPENFORMS_PATH . 'src/' . $path . '.php';
-
-		if ( file_exists( $file ) ) {
-			require $file;
-		}
+	/**
+	 * Init and hook in the integration.
+	 * This boots the plugin submodules.
+	 */
+	public function __construct() {
+		require_once OPENFORMS_PATH . 'src/Init.php';
+		\OpenForms\Init::boot();
 	}
-);
+}
 
-new OpenForms\Init();
+// Initialize the plugin once WooCommerce has loaded.
+add_action( 'plugins_loaded', function() {
+	if ( ! defined( 'OPENFORMS_VERSION' ) ) {
+		define( 'OPENFORMS_VERSION', '1.9.1' );
+	}
+	if ( ! defined( 'OPENFORMS_FILE' ) ) {
+		define( 'OPENFORMS_FILE', __FILE__ );
+	}
+	if ( ! defined( 'OPENFORMS_PATH' ) ) {
+		define( 'OPENFORMS_PATH', plugin_dir_path( __FILE__ ) );
+	}
+	if ( ! defined( 'OPENFORMS_URL' ) ) {
+		define( 'OPENFORMS_URL', plugin_dir_url( __FILE__ ) );
+	}
+	new OpenForms();
+} );

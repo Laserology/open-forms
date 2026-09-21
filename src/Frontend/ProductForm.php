@@ -1,15 +1,15 @@
 <?php
 /**
- * Frontend. Renders the configured fields above the add to cart button.
- *
- * @package OpenForms
+ * ProductForm: frontend. Renders the configured fields above the add to cart button.
  */
 
 namespace OpenForms\Frontend;
 
 use OpenForms\FieldHelpers;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * Outputs the form fields on the single product page.
@@ -26,8 +26,10 @@ class ProductForm {
 
 	/**
 	 * Render the fields for the current product.
+	 *
+	 * @return void
 	 */
-	public function render() {
+	public function render(): void {
 		global $product;
 
 		if ( ! $product ) {
@@ -53,7 +55,7 @@ class ProductForm {
 	 * @param array $fields       Fields keyed by field key.
 	 * @param int   $variation_id Variation ID, or 0 for product level fields.
 	 */
-	private function render_field_list( $fields, $variation_id = 0 ) {
+	private function render_field_list( array $fields, int $variation_id = 0 ): void {
 		if ( empty( $fields ) ) {
 			return;
 		}
@@ -77,8 +79,10 @@ class ProductForm {
 
 	/**
 	 * Enqueue the frontend assets on product pages only.
+	 *
+	 * @return void
 	 */
-	public function enqueue() {
+	public function enqueue(): void {
 		if ( ! is_product() ) {
 			return;
 		}

@@ -1,10 +1,8 @@
 <?php
 /**
- * Cleanup. Deletes uploaded files that are no longer referenced anywhere once
+ * Cleanup: deletes uploaded files that are no longer referenced anywhere once
  * their cart item is removed or their order is deleted, so orphaned uploads
  * do not pile up in the private storage folder.
- *
- * @package OpenForms
  */
 
 namespace OpenForms\Services;
@@ -12,7 +10,9 @@ namespace OpenForms\Services;
 use OpenForms\DataHelpers;
 use OpenForms\FieldHelpers;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * Removes orphaned uploads when their only reference goes away.
@@ -24,7 +24,7 @@ class Cleanup {
 	 *
 	 * @var string
 	 */
-	private $session_key = 'openforms_pending_cleanup';
+	private string $session_key = 'openforms_pending_cleanup';
 
 	/**
 	 * Constructor.
@@ -50,7 +50,7 @@ class Cleanup {
 	 * @param string   $cart_item_key Cart item key.
 	 * @param \WC_Cart $cart          Cart object.
 	 */
-	public function cleanup_cart_item( $cart_item_key, $cart ) {
+	public function cleanup_cart_item( string $cart_item_key, \WC_Cart $cart ): void {
 		if ( ! is_object( $cart ) ) {
 			return;
 		}
@@ -72,7 +72,7 @@ class Cleanup {
 	 * @param string   $cart_item_key Cart item key.
 	 * @param \WC_Cart $cart          Cart object.
 	 */
-	public function restore_cart_item( $cart_item_key, $cart ) {
+	public function restore_cart_item( string $cart_item_key, \WC_Cart $cart ): void {
 		if ( ! is_object( $cart ) ) {
 			return;
 		}
@@ -92,7 +92,7 @@ class Cleanup {
 	 * The cart was emptied (checkout completed or emptied manually). Delete
 	 * every queued file that is not referenced by an order.
 	 */
-	public function cleanup_emptied_cart() {
+	public function cleanup_emptied_cart(): void {
 		foreach ( $this->queued() as $token ) {
 			if ( ! $this->token_in_orders( $token ) ) {
 				$this->delete_file( $token );
@@ -109,7 +109,7 @@ class Cleanup {
 	 * @param int             $order_id Order ID.
 	 * @param \WC_Order|false $order    Order object.
 	 */
-	public function cleanup_order( $order_id, $order = false ) {
+	public function cleanup_order( int $order_id, \WC_Order|false $order = false ): void {
 		if ( ! $order instanceof \WC_Order ) {
 			$order = wc_get_order( $order_id );
 		}
@@ -146,7 +146,7 @@ class Cleanup {
 	 *
 	 * @param int $post_id Post ID.
 	 */
-	public function cleanup_order_post( $post_id ) {
+	public function cleanup_order_post( int $post_id ): void {
 		if ( 'shop_order' === get_post_type( $post_id ) ) {
 			$this->cleanup_order( $post_id );
 		}
@@ -157,7 +157,7 @@ class Cleanup {
 	 *
 	 * @return array
 	 */
-	private function queued() {
+	private function queued(): array {
 		if ( ! $this->session() ) {
 			return array();
 		}
@@ -172,7 +172,7 @@ class Cleanup {
 	 *
 	 * @param array $tokens Tokens to queue.
 	 */
-	private function queue( $tokens ) {
+	private function queue( array $tokens ): void {
 		$this->set_queued( array_unique( array_merge( $this->queued(), $tokens ) ) );
 	}
 
@@ -181,7 +181,7 @@ class Cleanup {
 	 *
 	 * @param array $tokens Tokens to unqueue.
 	 */
-	private function unqueue( $tokens ) {
+	private function unqueue( array $tokens ): void {
 		$this->set_queued( array_diff( $this->queued(), $tokens ) );
 	}
 
@@ -190,7 +190,7 @@ class Cleanup {
 	 *
 	 * @param array $tokens Tokens.
 	 */
-	private function set_queued( $tokens ) {
+	private function set_queued( array $tokens ): void {
 		if ( $this->session() ) {
 			$this->session()->set( $this->session_key, array_values( $tokens ) );
 		}
@@ -201,7 +201,7 @@ class Cleanup {
 	 *
 	 * @return \WC_Session|null
 	 */
-	private function session() {
+	private function session(): ?\WC_Session {
 		if ( function_exists( 'WC' ) && isset( WC()->session ) && WC()->session ) {
 			return WC()->session;
 		}
@@ -216,7 +216,7 @@ class Cleanup {
 	 * @param array  $exclude_item_ids Order item IDs to ignore (the order being deleted).
 	 * @return bool
 	 */
-	private function token_in_orders( $token, $exclude_item_ids = array() ) {
+	private function token_in_orders( string $token, array $exclude_item_ids = array() ): bool {
 		global $wpdb;
 
 		$exclude = array_unique( array_map( 'absint', (array) $exclude_item_ids ) );
@@ -249,7 +249,7 @@ class Cleanup {
 	 *
 	 * @param string $token File token.
 	 */
-	private function delete_file( $token ) {
+	private function delete_file( string $token ): void {
 		foreach ( FieldHelpers::files_for_token( $token ) as $file ) {
 			unlink( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		}

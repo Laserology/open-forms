@@ -1,14 +1,14 @@
 <?php
 /**
- * Form payload helpers. Handles the JSON blob that travels with cart items
- * and order line items.
- *
- * @package OpenForms
+ * DataHelpers: form payload helpers. Handles the JSON blob that travels with
+ * cart items and order line items.
  */
 
 namespace OpenForms;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * Encodes, decodes and inspects the submitted form payload.
@@ -21,7 +21,7 @@ class DataHelpers {
 	 * @param string $json Stored JSON payload.
 	 * @return array
 	 */
-	public static function decode( $json ) {
+	public static function decode( string $json ): array {
 		$data = json_decode( $json, true );
 
 		return is_array( $data ) ? $data : array();
@@ -33,7 +33,7 @@ class DataHelpers {
 	 * @param array $data Decoded openforms_data.
 	 * @return array
 	 */
-	public static function file_tokens( $data ) {
+	public static function file_tokens( array $data ): array {
 		$tokens = array();
 
 		foreach ( (array) $data as $entry ) {
@@ -53,7 +53,7 @@ class DataHelpers {
 	 * @param bool  $with_size Whether to append the formatted file size.
 	 * @return string
 	 */
-	public static function render_file( $entry, $with_link = true, $with_size = false ) {
+	public static function render_file( array $entry, bool $with_link = true, bool $with_size = false ): string {
 		$name = esc_html( $entry['file_name'] );
 		$size = $with_size && ! empty( $entry['file_size'] ) ? ' (' . esc_html( size_format( $entry['file_size'] ) ) . ')' : '';
 

@@ -1,15 +1,15 @@
 <?php
 /**
- * Product admin. Adds the form configuration to products and variations.
- *
- * @package OpenForms
+ * ProductSettings: product admin. Adds the form configuration to products and variations.
  */
 
 namespace OpenForms\Admin;
 
 use OpenForms\FieldHelpers;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * Product data tab (product) and panel (variation) that manage the field list.
@@ -34,7 +34,7 @@ class ProductSettings {
 	 * @param array $tabs Existing product data tabs.
 	 * @return array
 	 */
-	public function add_tab( $tabs ) {
+	public function add_tab( array $tabs ): array {
 		$tabs['openforms'] = array(
 			'label'    => __( 'OpenForms', 'openforms' ),
 			'target'   => 'openforms_product_data',
@@ -46,8 +46,10 @@ class ProductSettings {
 
 	/**
 	 * Render the OpenForms product data panel.
+	 *
+	 * @return void
 	 */
-	public function product_data_panel() {
+	public function product_data_panel(): void {
 		global $post;
 
 		echo '<div id="openforms_product_data" class="panel woocommerce_options_panel">';
@@ -75,7 +77,7 @@ class ProductSettings {
 	 * @param array    $variation_data Variation data.
 	 * @param \WP_Post $variation      Variation post.
 	 */
-	public function variation_panel( $loop, $variation_data, $variation ) {
+	public function variation_panel( int $loop, array $variation_data, \WP_Post $variation ): void {
 		$enabled = 'yes' === get_post_meta( $variation->ID, '_openforms_enabled', true );
 		$fields  = FieldHelpers::for_post( $variation->ID );
 
@@ -103,7 +105,7 @@ class ProductSettings {
 	 * @param array  $fields  Existing fields.
 	 * @param string $prefix  Input name prefix.
 	 */
-	private function render_config( $post_id, $enabled, $fields, $prefix ) {
+	private function render_config( int $post_id, bool $enabled, array $fields, string $prefix ): void {
 		echo '<div class="openforms-config">';
 
 		echo '<p class="form-field openforms-enabled">';
@@ -151,7 +153,7 @@ class ProductSettings {
 	 * @param array  $field    Existing field data.
 	 * @param bool   $template Whether this is the hidden JS template row.
 	 */
-	private function render_field_row( $prefix, $index, $field = array(), $template = false ) {
+	private function render_field_row( string $prefix, mixed $index, array $field = array(), bool $template = false ): void {
 		$name     = isset( $field['name'] ) ? $field['name'] : '';
 		$type     = isset( $field['type'] ) ? $field['type'] : 'text';
 		$required = ! empty( $field['required'] );
@@ -177,7 +179,7 @@ class ProductSettings {
 	 *
 	 * @param int $post_id Product ID.
 	 */
-	public function save_product( $post_id ) {
+	public function save_product( int $post_id ): void {
 		if ( ! isset( $_POST['openforms_nonce'] ) || ! wp_verify_nonce( wp_unslash( $_POST['openforms_nonce'] ), 'openforms_save_fields' ) ) {
 			return;
 		}
@@ -196,7 +198,7 @@ class ProductSettings {
 	 * @param int $variation_id Variation ID.
 	 * @param int $loop         Loop index.
 	 */
-	public function save_variation( $variation_id, $loop ) {
+	public function save_variation( int $variation_id, int $loop ): void {
 		$nonce_field = 'openforms_variation_nonce_' . $variation_id;
 
 		if ( ! isset( $_POST[ $nonce_field ] ) || ! wp_verify_nonce( wp_unslash( $_POST[ $nonce_field ] ), 'openforms_save_variation_' . $variation_id ) ) {
@@ -217,7 +219,7 @@ class ProductSettings {
 	 * @param int   $post_id Post ID.
 	 * @param array $data    Raw submitted config.
 	 */
-	private function save_config( $post_id, $data ) {
+	private function save_config( int $post_id, array $data ): void {
 		$enabled = ! empty( $data['enabled'] );
 		update_post_meta( $post_id, '_openforms_enabled', $enabled ? 'yes' : 'no' );
 
@@ -253,7 +255,7 @@ class ProductSettings {
 	 *
 	 * @param string $hook Current admin page.
 	 */
-	public function enqueue( $hook ) {
+	public function enqueue( string $hook ): void {
 		if ( ! in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
 			return;
 		}

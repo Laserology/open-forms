@@ -1,13 +1,14 @@
 <?php
 /**
- * Field type registry and per-field helpers (render, validate, sanitize, uploads).
- *
- * @package OpenForms
+ * FieldHelpers: field type registry and per-field helpers (render, validate,
+ * sanitize, uploads).
  */
 
 namespace OpenForms;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * Handles the available field types and the shared helpers used by the
@@ -22,7 +23,7 @@ class FieldHelpers {
 	 *
 	 * @return array
 	 */
-	public static function types() {
+	public static function types(): array {
 		return apply_filters(
 			'openforms_field_types',
 			array(
@@ -42,7 +43,7 @@ class FieldHelpers {
 	 * @param int $post_id Product or variation post ID.
 	 * @return array Fields keyed by field key.
 	 */
-	public static function for_post( $post_id ) {
+	public static function for_post( int $post_id ): array {
 		if ( 'yes' !== get_post_meta( $post_id, '_openforms_enabled', true ) ) {
 			return array();
 		}
@@ -82,7 +83,7 @@ class FieldHelpers {
 	 * @param array  $field     Field definition.
 	 * @return string
 	 */
-	public static function render( $input_key, $field ) {
+	public static function render( string $input_key, array $field ): string {
 		$type      = isset( $field['type'] ) ? $field['type'] : 'text';
 		$config    = isset( self::types()[ $type ] ) ? self::types()[ $type ] : self::types()['text'];
 		$input     = $config['input'];
@@ -110,7 +111,7 @@ class FieldHelpers {
 	 * @param array  $field     Field definition.
 	 * @return array List of error messages (empty when valid).
 	 */
-	public static function validate( $input_key, $field ) {
+	public static function validate( string $input_key, array $field ): array {
 		$type     = isset( $field['type'] ) ? $field['type'] : 'text';
 		$name     = isset( $field['name'] ) ? $field['name'] : '';
 		$required = ! empty( $field['required'] );
@@ -166,18 +167,18 @@ class FieldHelpers {
 	 * @param mixed  $value Submitted value.
 	 * @return string
 	 */
-	public static function sanitize( $type, $value ) {
+	public static function sanitize( string $type, mixed $value ): string {
 		switch ( $type ) {
 			case 'textarea':
-				return sanitize_textarea_field( $value );
+				return (string) sanitize_textarea_field( $value );
 			case 'url':
-				return esc_url_raw( $value );
+				return (string) esc_url_raw( $value );
 			case 'email':
-				return sanitize_email( $value );
+				return (string) sanitize_email( $value );
 			case 'number':
-				return is_numeric( $value ) ? $value : '';
+				return is_numeric( $value ) ? (string) $value : '';
 			default:
-				return sanitize_text_field( $value );
+				return (string) sanitize_text_field( $value );
 		}
 	}
 
@@ -187,7 +188,7 @@ class FieldHelpers {
 	 * @param string $token File token.
 	 * @return bool
 	 */
-	public static function is_valid_token( $token ) {
+	public static function is_valid_token( string $token ): bool {
 		return (bool) preg_match( '/^[a-f0-9]{32}$/', $token );
 	}
 
@@ -198,7 +199,7 @@ class FieldHelpers {
 	 * @param string $token File token.
 	 * @return array
 	 */
-	public static function files_for_token( $token ) {
+	public static function files_for_token( string $token ): array {
 		if ( ! self::is_valid_token( $token ) ) {
 			return array();
 		}
@@ -215,7 +216,7 @@ class FieldHelpers {
 	 *
 	 * @return string
 	 */
-	public static function upload_dir() {
+	public static function upload_dir(): string {
 		$dir = wp_upload_dir();
 		$dir = $dir['basedir'] . '/openforms';
 
@@ -249,7 +250,7 @@ class FieldHelpers {
 	 * @param string $input_key Input name key.
 	 * @return array|null File details or null on failure.
 	 */
-	public static function save_file( $input_key ) {
+	public static function save_file( string $input_key ): ?array {
 		if ( empty( $_FILES['openforms']['name'][ $input_key ] ) ) {
 			return null;
 		}

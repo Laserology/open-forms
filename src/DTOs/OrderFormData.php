@@ -1,16 +1,16 @@
 <?php
 /**
- * Order admin. Adds a meta box with the attached form content and a summary
- * order note for every line item that carries form data.
- *
- * @package OpenForms
+ * OrderFormData: order admin. Adds a meta box with the attached form content
+ * and a summary order note for every line item that carries form data.
  */
 
 namespace OpenForms\DTOs;
 
 use OpenForms\DataHelpers;
 
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * Renders form attachments on the order screen.
@@ -31,7 +31,7 @@ class OrderFormData {
 	 * Register the meta box on the order screen. Works with both legacy order
 	 * storage and High Performance Order Storage (HPOS).
 	 */
-	public function add_meta_box() {
+	public function add_meta_box(): void {
 		$screen = 'shop_order';
 
 		if ( class_exists( '\Automattic\WooCommerce\Internal\DataStores\Orders\CustomOrdersTableController' ) ) {
@@ -57,7 +57,7 @@ class OrderFormData {
 	 *
 	 * @param \WP_Post|\WC_Order $post Order post or order object.
 	 */
-	public function render_meta_box( $post ) {
+	public function render_meta_box( mixed $post ): void {
 		$order    = is_a( $post, 'WP_Post' ) ? wc_get_order( $post->ID ) : $post;
 		$rendered = false;
 
@@ -97,7 +97,7 @@ class OrderFormData {
 	 *
 	 * @param \WC_Order $order Order object.
 	 */
-	public function add_order_notes( $order ) {
+	public function add_order_notes( \WC_Order $order ): void {
 		foreach ( $order->get_items() as $item ) {
 			$data = DataHelpers::decode( $item->get_meta( 'openforms_data' ) );
 
@@ -135,7 +135,7 @@ class OrderFormData {
 	 * @param array          $args Display arguments.
 	 * @return string
 	 */
-	public function display_item_meta( $html, $item, $args ) {
+	public function display_item_meta( string $html, \WC_Order_Item $item, array $args ): string {
 		$data = DataHelpers::decode( $item->get_meta( 'openforms_data' ) );
 
 		if ( empty( $data ) ) {
@@ -158,7 +158,7 @@ class OrderFormData {
 	/**
 	 * Load the frontend stylesheet on the order screens that render item meta.
 	 */
-	public function enqueue() {
+	public function enqueue(): void {
 		if ( ! is_order_received_page() && ! is_view_order_page() ) {
 			return;
 		}

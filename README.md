@@ -7,8 +7,8 @@ OpenForms is a lightweight WordPress plugin that lets store owners attach config
 The goal of this plugin is to provied a bare-bones, simple, and easy no-nonsense product forms solution for stores of any size. This plugin does not and likely will never have a "Pro" version. The goal of the project is to be the most open source friendly as possible.
 
 - **Plugin name:** OpenForms
-- **Version:** 1.0.7
-- **Requires:** WordPress, WooCommerce, PHP 7.4+
+- **Version:** 1.1.0
+- **Requires:** WordPress, WooCommerce, PHP 8.0+
 - **License:** [GPL-2.0-or-later](LICENSE)
 
 ---
@@ -36,7 +36,7 @@ Every field can be marked as **required**. Any submitted file goes through WordP
 
 - WordPress 5.x or newer (HPOS-aware)
 - WooCommerce (required)
-- PHP 7.4 or newer
+- PHP 8.0 or newer
 
 ## Installation
 
@@ -80,14 +80,14 @@ The shopper fills in the fields and adds the product to the cart. Required field
 
 ## How it works (developer perspective)
 
-The plugin is deliberately modular. `OpenForms.php` bootstraps everything: it defines the plugin constants, registers a small PSR-4 style autoloader that maps the `OpenForms\` namespace to the `src/` directory, and instantiates the core `Init` class. `Init` then loads six independent modules.
+The plugin is deliberately modular. `OpenForms.php` bootstraps everything: it guards the PHP version and defines the plugin constants on `plugins_loaded`, then constructs the plugin class, which loads `src/Init.php`. `Init::boot()` registers a small PSR-4 style autoloader that maps the `OpenForms\` namespace to the `src/` directory, loads the text domain, and instantiates the eight independent modules.
 
 ### Architecture
 
 ```
-OpenForms.php              Entry point, constants, PSR-4 autoloader
+OpenForms.php              Entry point, constants, PHP 8.0 guard, plugin class
 src/
-├── Init.php               Loads the six modules
+├── Init.php               Registers the autoloader and loads the eight modules
 ├── FieldHelpers.php       Shared field registry + render/validate/sanitize/upload helpers
 ├── DataHelpers.php        Shared helpers for the form payload JSON (decode, tokens, file render)
 ├── Admin/
@@ -97,13 +97,17 @@ src/
 ├── Services/
 │   ├── CartHandler.php    Validation, cart item data, cart/checkout display, order meta
 │   ├── Download.php       Authorized download endpoint for private uploads
-│   └── Cleanup.php        Deletes uploads orphaned by removed cart items / deleted orders
+│   ├── Cleanup.php        Deletes uploads orphaned by removed cart items / deleted orders
+│   └── QuoteHandler.php   Quote submissions, admin viewer for the get-a-quote block
+├── Blocks/
+│   └── GetQuote.php       "Get a Quote" block with server-side render callback
 └── DTOs/
     └── OrderFormData.php  Order-screen meta box + summary order notes
 assets/
 ├── js/admin.js            Add/remove field rows (uses a hidden template row)
 ├── js/frontend.js         Shows/hides variation fields on found_variation
-└── css/                   admin.css, frontend.css
+├── js/quote-editor.js     Block editor assets for the quote form
+└── css/                   admin.css, frontend.css, quote.css
 ```
 
 ### Shared field logic — `src/FieldHelpers.php`

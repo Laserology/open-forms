@@ -1,0 +1,141 @@
+/**
+ * OpenForms Get a Quote block.
+ *
+ * A modern card layout that follows the WooCommerce design language and picks
+ * up the theme's block palette. Colours are read from the theme's block
+ * palette CSS custom properties when they exist and fall back to neutral
+ * WooCommerce-style values otherwise.
+ */
+
+.wp-block-openforms-get-quote {
+	box-sizing: border-box;
+}
+
+.openforms-quote {
+	padding: 2rem 1.5rem;
+	border: 1px solid var(--wp--preset--color--contrast-20, #d1d1d1);
+	border-radius: 12px;
+	background-color: var(--wp--preset--color--base, #ffffff);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.openforms-quote__notice {
+	margin: 0 0 1.25em;
+	padding: 0.8em 1em;
+	border-radius: 8px;
+	font-weight: 500;
+}
+
+.openforms-quote__notice--success {
+	background-color: #e8f5e9;
+	color: #1b5e20;
+}
+
+.openforms-quote__notice--error {
+	background-color: #fdecea;
+	color: #b71c1c;
+}
+
+.openforms-quote__fields {
+	display: grid;
+	gap: 1em;
+}
+
+/* The heading, subheading and submit button are standard core blocks nested
+ * in the form. Keep them full width and give the card header a consistent
+ * look. */
+.openforms-quote__fields > .wp-block-heading {
+	margin: 0 0 0.35em;
+	font-size: clamp(1.5rem, 3vw, 2rem);
+	line-height: 1.2;
+}
+
+.openforms-quote__fields > p:not(.openforms-quote__field) {
+	margin: 0 0 1.5em;
+	line-height: 1.6;
+}
+
+.openforms-quote__fields > .wp-block-button,
+.openforms-quote__fields > .wp-block-buttons {
+	margin-top: 1.5em;
+}
+
+@media (min-width: 600px) {
+	.openforms-quote__fields {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	/* Everything but the form fields spans both grid columns. */
+	.openforms-quote__fields > *:not(.openforms-quote__field) {
+		grid-column: 1 / -1;
+	}
+
+	.openforms-quote__field--full {
+		grid-column: 1 / -1;
+	}
+}
+
+.openforms-quote__field {
+	margin: 0;
+}
+
+/*
+ * Editor only: the field inner blocks. The wp-block-openforms-quote-field
+ * wrapper class only exists in the block editor; the frontend markup comes
+ * from PHP and never carries it.
+ */
+.wp-block-openforms-quote-field {
+	margin: 0;
+}
+
+.wp-block-openforms-quote-field:hover {
+	outline: 1px dashed var(--wp--preset--color--contrast-20, #d1d1d1);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+.openforms-quote__label {
+	display: block;
+	margin-bottom: 0.4em;
+	color: var(--wp--preset--color--contrast, #111111);
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.openforms-quote__label .required {
+	color: var(--wp--preset--color--vivid-red, #d63638);
+}
+
+.openforms-quote__input,
+.openforms-quote__select,
+.openforms-quote__textarea {
+	display: block;
+	width: 100%;
+	box-sizing: border-box;
+	padding: 0.7em 0.9em;
+	border: 1px solid var(--wp--preset--color--contrast-20, #d1d1d1);
+	border-radius: 8px;
+	background-color: var(--wp--preset--color--base, #ffffff);
+	color: var(--wp--preset--color--contrast, #111111);
+	font-family: inherit;
+	font-size: 1em;
+	line-height: 1.5;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.openforms-quote__textarea {
+	min-height: 7em;
+	resize: vertical;
+}
+
+.openforms-quote__input:focus,
+.openforms-quote__select:focus,
+.openforms-quote__textarea:focus {
+	border-color: var(--wp--preset--color--primary, #96588a);
+	outline: none;
+	box-shadow: 0 0 0 3px rgba(150, 88, 138, 0.15);
+}
+
+.openforms-quote__input::placeholder {
+	color: var(--wp--preset--color--contrast-40, #8a8a8a);
+}
