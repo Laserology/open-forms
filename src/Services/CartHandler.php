@@ -59,11 +59,12 @@ class CartHandler {
 	 * @param bool $passed       Current validation state.
 	 * @param int  $product_id   Product ID.
 	 * @param int  $quantity     Quantity.
-	 * @param int  $variation_id Variation ID.
+	 * @param int|string $variation_id Variation ID.
 	 * @return bool
 	 */
-	public function validate( bool $passed, int $product_id, int $quantity, int $variation_id = 0 ): bool {
-		$fields = $this->fields_for( $product_id, $variation_id );
+	public function validate( bool $passed, int $product_id, int $quantity, $variation_id = 0 ): bool {
+		$variation_id = absint( $variation_id );
+		$fields       = $this->fields_for( $product_id, $variation_id );
 
 		if ( empty( $fields ) ) {
 			return $passed;
