@@ -167,6 +167,8 @@ class QuoteHandler {
 				'show_in_rest'       => false,
 				'menu_icon'          => 'dashicons-money-alt',
 				'supports'           => array( 'title' ),
+				// Shop order caps: quotes hold customer details.
+				'capability_type'    => array( 'shop_order', 'shop_orders' ),
 				'capabilities'       => array(
 					'create_posts' => 'do_not_allow',
 				),
@@ -237,6 +239,8 @@ class QuoteHandler {
 				'post_type'   => 'openforms_quote',
 				'post_status' => 'publish',
 				'post_title'  => $name,
+				// Unowned, so submitters cannot edit their own quote.
+				'post_author' => 0,
 			)
 		);
 
@@ -425,14 +429,8 @@ class QuoteHandler {
 			return '';
 		}
 
-		// WooCommerce resolves the client IP behind proxies and CDNs; REMOTE_ADDR
-		// is the fallback when it cannot.
-		$ip = class_exists( 'WC_Geolocation' ) ? (string) \WC_Geolocation::get_ip_address() : '';
-
-		if ( '' === $ip && ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
-			$remote = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
-			$ip     = filter_var( $remote, FILTER_VALIDATE_IP ) ? $remote : '';
-		}
+		// Forwarded headers are client controlled; see client_ip().
+		$ip = FieldHelpers::client_ip();
 
 		return '' === $ip ? '' : 'openforms_quote_submit_' . md5( $ip );
 	}
