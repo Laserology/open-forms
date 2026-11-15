@@ -36,7 +36,7 @@ class ProductSettings {
 	 */
 	public function add_tab( array $tabs ): array {
 		$tabs['openforms'] = array(
-			'label'    => __( 'OpenForms', 'openforms' ),
+			'label'    => __( 'OpenForms', 'open-forms' ),
 			'target'   => 'openforms_product_data',
 			'priority' => 65,
 		);
@@ -62,7 +62,7 @@ class ProductSettings {
 		$fields  = FieldHelpers::for_post( $post->ID );
 
 		echo '<p class="openforms-intro">';
-		echo esc_html__( 'Forms configured here appear on the product page above the add to cart button. On a variable product these apply to every variation.', 'openforms' );
+		echo esc_html__( 'Forms configured here appear on the product page above the add to cart button. On a variable product these apply to every variation.', 'open-forms' );
 		echo '</p>';
 
 		$this->render_config( $post->ID, $enabled, $fields, 'openforms' );
@@ -82,14 +82,14 @@ class ProductSettings {
 		$fields  = FieldHelpers::for_post( $variation->ID );
 
 		echo '<div class="openforms-variation-panel">';
-		echo '<h4>' . esc_html__( 'OpenForms', 'openforms' ) . '</h4>';
+		echo '<h4>' . esc_html__( 'OpenForms', 'open-forms' ) . '</h4>';
 
 		// Per-variation nonce so the panel config can only be saved by an
 		// authorized request. Defense in depth on top of the product save.
 		wp_nonce_field( 'openforms_save_variation_' . $variation->ID, 'openforms_variation_nonce_' . $variation->ID );
 
 		echo '<p class="openforms-intro">';
-		echo esc_html__( 'Forms configured here only apply to this variation. Fields are shown when the variation is selected.', 'openforms' );
+		echo esc_html__( 'Forms configured here only apply to this variation. Fields are shown when the variation is selected.', 'open-forms' );
 		echo '</p>';
 
 		$this->render_config( $variation->ID, $enabled, $fields, 'openforms_variation[' . $variation->ID . ']' );
@@ -109,21 +109,21 @@ class ProductSettings {
 		echo '<div class="openforms-config">';
 
 		echo '<p class="form-field openforms-enabled">';
-		echo '<label for="openforms-enabled-' . esc_attr( $post_id ) . '">' . esc_html__( 'Enable forms', 'openforms' ) . '</label>';
+		echo '<label for="openforms-enabled-' . esc_attr( $post_id ) . '">' . esc_html__( 'Enable forms', 'open-forms' ) . '</label>';
 		echo '<input type="checkbox" class="checkbox" id="openforms-enabled-' . esc_attr( $post_id ) . '" name="' . esc_attr( $prefix ) . '[enabled]" value="1"' . checked( $enabled, true, false ) . ' />';
 		echo '</p>';
 
 		echo '<table class="widefat striped openforms-fields-table">';
 		echo '<thead><tr>';
-		echo '<th>' . esc_html__( 'Name', 'openforms' ) . '</th>';
-		echo '<th>' . esc_html__( 'Type', 'openforms' ) . '</th>';
-		echo '<th class="openforms-required-col">' . esc_html__( 'Required', 'openforms' ) . '</th>';
+		echo '<th>' . esc_html__( 'Name', 'open-forms' ) . '</th>';
+		echo '<th>' . esc_html__( 'Type', 'open-forms' ) . '</th>';
+		echo '<th class="openforms-required-col">' . esc_html__( 'Required', 'open-forms' ) . '</th>';
 		echo '<th class="openforms-actions-col"></th>';
 		echo '</tr></thead>';
 		echo '<tbody class="openforms-fields-body">';
 
 		if ( empty( $fields ) ) {
-			echo '<tr class="openforms-empty-row"><td colspan="4">' . esc_html__( 'No fields added yet.', 'openforms' ) . '</td></tr>';
+			echo '<tr class="openforms-empty-row"><td colspan="4">' . esc_html__( 'No fields added yet.', 'open-forms' ) . '</td></tr>';
 		}
 
 		$row = 0;
@@ -136,11 +136,11 @@ class ProductSettings {
 		// Hidden template rows used by the admin JS. Kept inside the tbody so
 		// the <tr> markup stays valid.
 		$this->render_field_row( $prefix, 'INDEX', array(), true );
-		echo '<tr class="openforms-empty-row openforms-empty-template" hidden><td colspan="4">' . esc_html__( 'No fields added yet.', 'openforms' ) . '</td></tr>';
+		echo '<tr class="openforms-empty-row openforms-empty-template" hidden><td colspan="4">' . esc_html__( 'No fields added yet.', 'open-forms' ) . '</td></tr>';
 
 		echo '</tbody></table>';
 
-		echo '<p><button type="button" class="button openforms-add-field">' . esc_html__( 'Add Field', 'openforms' ) . '</button></p>';
+		echo '<p><button type="button" class="button openforms-add-field">' . esc_html__( 'Add Field', 'open-forms' ) . '</button></p>';
 
 		echo '</div>';
 	}
@@ -161,7 +161,7 @@ class ProductSettings {
 		$row_class = $template ? 'openforms-field-row openforms-field-template' : 'openforms-field-row';
 
 		echo '<tr class="' . esc_attr( $row_class ) . '"' . ( $template ? ' hidden' : '' ) . '>';
-		echo '<td><input type="text" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][name]" value="' . esc_attr( $name ) . '" placeholder="' . esc_attr__( 'Field name', 'openforms' ) . '" /></td>';
+		echo '<td><input type="text" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][name]" value="' . esc_attr( $name ) . '" placeholder="' . esc_attr__( 'Field name', 'open-forms' ) . '" /></td>';
 		echo '<td><select name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][type]">';
 
 		foreach ( FieldHelpers::types() as $slug => $config ) {
@@ -170,7 +170,7 @@ class ProductSettings {
 
 		echo '</select></td>';
 		echo '<td class="openforms-required-col"><input type="checkbox" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][required]" value="1"' . checked( $required, true, false ) . ' /></td>';
-		echo '<td class="openforms-actions-col"><button type="button" class="button openforms-remove-field">' . esc_html__( 'Remove', 'openforms' ) . '</button></td>';
+		echo '<td class="openforms-actions-col"><button type="button" class="button openforms-remove-field">' . esc_html__( 'Remove', 'open-forms' ) . '</button></td>';
 		echo '</tr>';
 	}
 
@@ -180,7 +180,7 @@ class ProductSettings {
 	 * @param int $post_id Product ID.
 	 */
 	public function save_product( int $post_id ): void {
-		if ( ! isset( $_POST['openforms_nonce'] ) || ! wp_verify_nonce( wp_unslash( $_POST['openforms_nonce'] ), 'openforms_save_fields' ) ) {
+		if ( empty( $_POST['openforms_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['openforms_nonce'] ) ), 'openforms_save_fields' ) ) {
 			return;
 		}
 
@@ -188,7 +188,7 @@ class ProductSettings {
 			return;
 		}
 
-		$data = isset( $_POST['openforms'] ) ? wp_unslash( $_POST['openforms'] ) : array();
+		$data = isset( $_POST['openforms'] ) && is_array( $_POST['openforms'] ) ? wp_unslash( $_POST['openforms'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each field is sanitized in save_config().
 		$this->save_config( $post_id, $data );
 	}
 
@@ -200,8 +200,9 @@ class ProductSettings {
 	 */
 	public function save_variation( int $variation_id, int $loop ): void {
 		$nonce_field = 'openforms_variation_nonce_' . $variation_id;
+		$nonce       = isset( $_POST[ $nonce_field ] ) ? sanitize_text_field( wp_unslash( $_POST[ $nonce_field ] ) ) : '';
 
-		if ( ! isset( $_POST[ $nonce_field ] ) || ! wp_verify_nonce( wp_unslash( $_POST[ $nonce_field ] ), 'openforms_save_variation_' . $variation_id ) ) {
+		if ( '' === $nonce || ! wp_verify_nonce( $nonce, 'openforms_save_variation_' . $variation_id ) ) {
 			return;
 		}
 
@@ -209,7 +210,7 @@ class ProductSettings {
 			return;
 		}
 
-		$data = isset( $_POST['openforms_variation'][ $variation_id ] ) ? wp_unslash( $_POST['openforms_variation'][ $variation_id ] ) : array();
+		$data = isset( $_POST['openforms_variation'][ $variation_id ] ) && is_array( $_POST['openforms_variation'][ $variation_id ] ) ? wp_unslash( $_POST['openforms_variation'][ $variation_id ] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each field is sanitized in save_config().
 		$this->save_config( $variation_id, $data );
 	}
 
@@ -227,8 +228,12 @@ class ProductSettings {
 
 		if ( ! empty( $data['fields'] ) && is_array( $data['fields'] ) ) {
 			foreach ( $data['fields'] as $i => $field ) {
+				if ( ! is_array( $field ) ) {
+					continue;
+				}
+
 				$name = isset( $field['name'] ) ? sanitize_text_field( $field['name'] ) : '';
-				$type = isset( $field['type'] ) ? $field['type'] : 'text';
+				$type = isset( $field['type'] ) && is_string( $field['type'] ) ? $field['type'] : 'text';
 
 				if ( ! isset( FieldHelpers::types()[ $type ] ) ) {
 					$type = 'text';

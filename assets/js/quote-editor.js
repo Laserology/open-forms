@@ -19,30 +19,30 @@
 	var __ = wp.i18n.__;
 
 	var FIELDS = {
-		name:    { label: __('Name', 'openforms'), type: 'text', required: true },
-		email:   { label: __('Email', 'openforms'), type: 'email', required: true },
-		phone:   { label: __('Phone', 'openforms'), type: 'tel', required: false },
-		budget:  { label: __('Estimated Budget', 'openforms'), type: 'select', required: false },
-		message: { label: __('Project Details', 'openforms'), type: 'textarea', required: true, full: true },
-		file:    { label: __('File Upload', 'openforms'), type: 'file', required: false, full: true }
+		name:    { label: __('Name', 'open-forms'), type: 'text', required: true },
+		email:   { label: __('Email', 'open-forms'), type: 'email', required: true },
+		phone:   { label: __('Phone', 'open-forms'), type: 'tel', required: false },
+		budget:  { label: __('Estimated Budget', 'open-forms'), type: 'select', required: false },
+		message: { label: __('Project Details', 'open-forms'), type: 'textarea', required: true, full: true },
+		file:    { label: __('File Upload', 'open-forms'), type: 'file', required: false, full: true }
 	};
 
 	var ALLOWED = ['core/heading', 'core/paragraph', 'core/group', 'core/stack', 'openforms/quote-field', 'core/buttons', 'core/button'];
 	var TEMPLATE = [
-		['core/heading', { level: 2, content: __('Get a Quote', 'openforms') }],
-		['core/paragraph', { content: __('Tell us about your project and we will be in touch.', 'openforms') }],
+		['core/heading', { level: 2, content: __('Get a Quote', 'open-forms') }],
+		['core/paragraph', { content: __('Tell us about your project and we will be in touch.', 'open-forms') }],
 		['openforms/quote-field', { key: 'name' }],
 		['openforms/quote-field', { key: 'email' }],
 		['openforms/quote-field', { key: 'phone' }],
 		['openforms/quote-field', { key: 'budget' }],
 		['openforms/quote-field', { key: 'message' }],
 		['openforms/quote-field', { key: 'file' }],
-		['core/buttons', {}, [['core/button', { text: __('Request a Quote', 'openforms') }]]]
+		['core/buttons', {}, [['core/button', { text: __('Request a Quote', 'open-forms') }]]]
 	];
 
 	registerBlockType('openforms/get-quote', {
-		title: __('Get a Quote', 'openforms'),
-		description: __('A quote request form. Submissions are stored in the admin.', 'openforms'),
+		title: __('Get a Quote', 'open-forms'),
+		description: __('A quote request form. Submissions are stored in the admin.', 'open-forms'),
 		category: 'text',
 		icon: 'money',
 		apiVersion: 3,
@@ -67,7 +67,7 @@
 	});
 
 	registerBlockType('openforms/quote-field', {
-		title: __('Quote Field', 'openforms'),
+		title: __('Quote Field', 'open-forms'),
 		category: 'text',
 		parent: ['openforms/get-quote'],
 		apiVersion: 3,
@@ -109,7 +109,7 @@
 			} else if (field.type === 'file') {
 				// Mirrors the frontend: a themed button labels the hidden input.
 				input = el('span', { className: 'openforms-quote__file' },
-					el('span', { className: 'openforms-quote__file-button wp-block-button__link wp-element-button' + inputClass, style: borderProps.style }, __('Choose a file', 'openforms'))
+					el('span', { className: 'openforms-quote__file-button wp-block-button__link wp-element-button' + inputClass, style: borderProps.style }, __('Choose a file', 'open-forms'))
 				);
 			} else {
 				inputProps.type = field.type;
@@ -120,9 +120,9 @@
 			// The field type is picked in the sidebar so editors can choose any of
 			// the registered fields, including the file upload field.
 			var inspector = el(InspectorControls, null,
-				el(PanelBody, { title: __('Field', 'openforms') },
+				el(PanelBody, { title: __('Field', 'open-forms') },
 					el(TextControl, {
-						label: __('Title', 'openforms'),
+						label: __('Title', 'open-forms'),
 						value: props.attributes.label,
 						placeholder: field.label,
 						onChange: function (label) {
@@ -130,7 +130,7 @@
 						}
 					}),
 					el(SelectControl, {
-						label: __('Field type', 'openforms'),
+						label: __('Field type', 'open-forms'),
 						value: props.attributes.key,
 						options: Object.keys(FIELDS).map(function (key) {
 							return { label: FIELDS[key].label, value: key };

@@ -36,8 +36,8 @@ class GetQuote {
 		register_block_type(
 			'openforms/get-quote',
 			array(
-				'title'         => __( 'Get a Quote', 'openforms' ),
-				'description'   => __( 'A quote request form. Submissions are stored in the admin.', 'openforms' ),
+				'title'         => __( 'Get a Quote', 'open-forms' ),
+				'description'   => __( 'A quote request form. Submissions are stored in the admin.', 'open-forms' ),
 				'category'      => 'text',
 				'icon'          => 'money',
 				'editor_script' => 'openforms-quote-editor',
@@ -82,7 +82,7 @@ class GetQuote {
 		register_block_type(
 			'openforms/quote-field',
 			array(
-				'title'         => __( 'Quote Field', 'openforms' ),
+				'title'         => __( 'Quote Field', 'open-forms' ),
 				'parent'        => array( 'openforms/get-quote' ),
 				'editor_script' => 'openforms-quote-editor',
 				'api_version'   => 3,
@@ -169,6 +169,7 @@ class GetQuote {
 		$form  .= $source ? '<input type="hidden" name="openforms_quote[source]" value="' . esc_attr( $source ) . '" />' : '';
 		$form  .= wp_nonce_field( 'openforms_quote_submit', 'openforms_quote_nonce', true, false );
 		$form  .= '<div class="openforms-quote__fields">' . $fields . '</div>';
+		$form  .= $this->status();
 		$form  .= '</form>';
 
 		return sprintf( '<div %s>%s%s</div>', $wrapper, $notice, $form );
@@ -185,17 +186,17 @@ class GetQuote {
 
 		switch ( $key ) {
 			case 'name':
-				return $this->field( 'name', __( 'Name', 'openforms' ), 'text', true, false, $attributes );
+				return $this->field( 'name', __( 'Name', 'open-forms' ), 'text', true, false, $attributes );
 			case 'email':
-				return $this->field( 'email', __( 'Email', 'openforms' ), 'email', true, false, $attributes );
+				return $this->field( 'email', __( 'Email', 'open-forms' ), 'email', true, false, $attributes );
 			case 'phone':
-				return $this->field( 'phone', __( 'Phone', 'openforms' ), 'tel', false, false, $attributes );
+				return $this->field( 'phone', __( 'Phone', 'open-forms' ), 'tel', false, false, $attributes );
 			case 'budget':
-				return $this->select_field( 'budget', __( 'Estimated Budget', 'openforms' ), QuoteHandler::budget_options(), false, false, $attributes );
+				return $this->select_field( 'budget', __( 'Estimated Budget', 'open-forms' ), QuoteHandler::budget_options(), false, false, $attributes );
 			case 'message':
-				return $this->field( 'message', __( 'Project Details', 'openforms' ), 'textarea', true, true, $attributes );
+				return $this->field( 'message', __( 'Project Details', 'open-forms' ), 'textarea', true, true, $attributes );
 			case 'file':
-				return $this->file_field( 'file', __( 'File Upload', 'openforms' ), $attributes );
+				return $this->file_field( 'file', __( 'File Upload', 'open-forms' ), $attributes );
 		}
 
 		return '';
@@ -294,7 +295,7 @@ class GetQuote {
 		$out .= '<span class="openforms-quote__label" id="' . esc_attr( $id ) . '-label">' . esc_html( $label ) . '</span>';
 		$out .= '<span class="openforms-quote__file">';
 		$out .= '<input type="file" class="openforms-quote__file-input" id="' . esc_attr( $id ) . '" name="openforms_quote[' . esc_attr( $key ) . ']" accept="' . esc_attr( QuoteHandler::attachment_accept() ) . '" aria-labelledby="' . esc_attr( $id ) . '-label" />';
-		$out .= '<label class="openforms-quote__file-button wp-block-button__link wp-element-button' . $button_class . '"' . $button_style . ' for="' . esc_attr( $id ) . '">' . esc_html__( 'Choose a file', 'openforms' ) . '</label>';
+		$out .= '<label class="openforms-quote__file-button wp-block-button__link wp-element-button' . $button_class . '"' . $button_style . ' for="' . esc_attr( $id ) . '">' . esc_html__( 'Choose a file', 'open-forms' ) . '</label>';
 		$out .= '<span class="openforms-quote__file-name" aria-live="polite"></span>';
 		$out .= '</span>';
 		$out .= '</p>';
@@ -333,7 +334,7 @@ class GetQuote {
 		$out  = '<p class="openforms-quote__field' . ( $full ? ' openforms-quote__field--full' : '' ) . $class . '"' . $style . '>';
 		$out .= '<label class="openforms-quote__label" for="' . esc_attr( $id ) . '">' . esc_html( $label ) . $mark . '</label>';
 		$out .= '<select class="openforms-quote__select' . $input_class . '"' . $input_style . ' id="' . esc_attr( $id ) . '" name="openforms_quote[' . esc_attr( $key ) . ']">';
-		$out .= '<option value="">' . esc_html__( 'Select an option…', 'openforms' ) . '</option>';
+		$out .= '<option value="">' . esc_html__( 'Select an option…', 'open-forms' ) . '</option>';
 
 		foreach ( $options as $option ) {
 			$out .= '<option value="' . esc_attr( $option ) . '">' . esc_html( $option ) . '</option>';
@@ -428,6 +429,17 @@ class GetQuote {
 	}
 
 	/**
+	 * The submission status line. Empty and hidden until the form is submitted,
+	 * then the script fills in the matching message so a large upload (or a slow
+	 * server) does not look like a frozen page.
+	 *
+	 * @return string
+	 */
+	private function status(): string {
+		return '<p class="openforms-quote__status" role="status" aria-live="polite" hidden data-sending="' . esc_attr__( 'Sending your request…', 'open-forms' ) . '" data-uploading="' . esc_attr__( 'Uploading your file, please wait…', 'open-forms' ) . '"></p>';
+	}
+
+	/**
 	 * The success or error banner shown after a form submission redirect.
 	 *
 	 * @return string
@@ -436,19 +448,19 @@ class GetQuote {
 		$type = $this->notice_type();
 
 		if ( 'success' === $type ) {
-			return '<p class="openforms-quote__notice openforms-quote__notice--success">' . esc_html__( 'Thanks! Your quote request has been sent. We will be in touch shortly.', 'openforms' ) . '</p>';
+			return '<p class="openforms-quote__notice openforms-quote__notice--success">' . esc_html__( 'Thanks! Your quote request has been sent. We will be in touch shortly.', 'open-forms' ) . '</p>';
 		}
 
 		if ( 'file' === $type ) {
-			return '<p class="openforms-quote__notice openforms-quote__notice--error">' . esc_html__( 'Sorry, the attached file could not be accepted. Please check its type and size and try again.', 'openforms' ) . '</p>';
+			return '<p class="openforms-quote__notice openforms-quote__notice--error">' . esc_html__( 'Sorry, the attached file could not be accepted. Please check its type and size and try again.', 'open-forms' ) . '</p>';
 		}
 
 		if ( 'throttle' === $type ) {
-			return '<p class="openforms-quote__notice openforms-quote__notice--error">' . esc_html__( 'Sorry, you can only attach a file once every few minutes. Please try again shortly.', 'openforms' ) . '</p>';
+			return '<p class="openforms-quote__notice openforms-quote__notice--error">' . esc_html__( 'Sorry, you can only send one request every few minutes. Please try again shortly.', 'open-forms' ) . '</p>';
 		}
 
 		if ( 'error' === $type ) {
-			return '<p class="openforms-quote__notice openforms-quote__notice--error">' . esc_html__( 'Sorry, your quote request could not be sent. Please try again.', 'openforms' ) . '</p>';
+			return '<p class="openforms-quote__notice openforms-quote__notice--error">' . esc_html__( 'Sorry, your quote request could not be sent. Please try again.', 'open-forms' ) . '</p>';
 		}
 
 		return '';
@@ -460,11 +472,11 @@ class GetQuote {
 	 * @return string
 	 */
 	private function notice_type(): string {
-		if ( ! isset( $_GET['openforms_quote'] ) ) {
+		if ( ! isset( $_GET['openforms_quote'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only status flag used to select a notice.
 			return '';
 		}
 
-		$type = sanitize_key( wp_unslash( $_GET['openforms_quote'] ) );
+		$type = sanitize_key( wp_unslash( $_GET['openforms_quote'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only status flag used to select a notice.
 
 		return in_array( $type, array( 'success', 'error', 'file', 'throttle' ), true ) ? $type : '';
 	}
