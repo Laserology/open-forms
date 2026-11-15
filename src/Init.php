@@ -29,22 +29,10 @@ class Init {
 		// Register the autoloader for all files.
 		self::register_autoloader();
 
-		// Load the plugin translations from the languages directory.
-		self::load_textdomain();
-
 		// Instantiate each modular component.
 		foreach ( self::MODULES as $module ) {
 			new $module();
 		}
-	}
-
-	/**
-	 * Load the plugin translations from the languages directory.
-	 *
-	 * @return void
-	 */
-	private static function load_textdomain(): void {
-		load_plugin_textdomain( 'openforms', false, dirname( plugin_basename( OPENFORMS_FILE ) ) . '/languages' );
 	}
 
 	/**

@@ -33,7 +33,7 @@ class Download {
 	 * @return void
 	 */
 	public function maybe_download(): void {
-		$token = isset( $_GET['openforms_download'] ) ? sanitize_text_field( wp_unslash( $_GET['openforms_download'] ) ) : '';
+		$token = isset( $_GET['openforms_download'] ) ? sanitize_text_field( wp_unslash( $_GET['openforms_download'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only download endpoint; access is checked by token and capability below.
 
 		if ( '' === $token || ! FieldHelpers::is_valid_token( $token ) ) {
 			return;
@@ -42,11 +42,11 @@ class Download {
 		$file = $this->find_file( $token );
 
 		if ( ! $file ) {
-			wp_die( esc_html__( 'File not found.', 'openforms' ), '', array( 'response' => 404 ) );
+			wp_die( esc_html__( 'File not found.', 'open-forms' ), '', array( 'response' => 404 ) );
 		}
 
 		if ( ! $this->can_download( $token ) && ! $this->token_in_cart( $token ) ) {
-			wp_die( esc_html__( 'You are not allowed to download this file.', 'openforms' ), '', array( 'response' => 403 ) );
+			wp_die( esc_html__( 'You are not allowed to download this file.', 'open-forms' ), '', array( 'response' => 403 ) );
 		}
 
 		$this->serve( $file );
@@ -148,7 +148,7 @@ class Download {
 		header( 'Content-Length: ' . (int) filesize( $file ) );
 		header( 'X-Content-Type-Options: nosniff' );
 
-		readfile( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations.readfile
+		readfile( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- Streaming a private file is the point of this endpoint.
 
 		exit;
 	}

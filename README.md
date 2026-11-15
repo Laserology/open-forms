@@ -98,7 +98,7 @@ src/
 │   ├── CartHandler.php    Validation, cart item data, cart/checkout display, order meta
 │   ├── Download.php       Authorized download endpoint for private uploads
 │   ├── Cleanup.php        Deletes uploads orphaned by removed cart items / deleted orders
-│   └── QuoteHandler.php   Quote submissions, admin viewer for the get-a-quote block
+│   └── QuoteHandler.php   Quote submissions, notification emails, admin viewer for the get-a-quote block
 ├── Blocks/
 │   └── GetQuote.php       "Get a Quote" block with server-side render callback
 └── DTOs/
@@ -171,7 +171,29 @@ Uploaded files are stored in a dedicated `openforms` folder under `wp-content/up
 
 Files are only served through the `?openforms_download=<token>` endpoint (`template_redirect`). The request is allowed when the token is still present in the shopper's active cart, when the current user can `edit_shop_orders` (admin / shop staff), or when the file is a quote attachment and the user can edit the quote that owns it — so the cart and checkout links work while the token hasn't been placed on an order yet. Files are always streamed as a forced download with `X-Content-Type-Options: nosniff` so stored content can never render inside a browser origin.
 
-Quote attachments are additionally limited to a fixed allow-list of types — images, PDF, Office documents and zip; see `QuoteHandler::attachment_mimes()` — and an anonymous submission may only attach a file once every 10 minutes per IP (filterable through `openforms_quote_upload_interval`; set it to `0` to disable).
+Quote attachments are additionally limited to a fixed allow-list of types — images, PDF, Office documents and zip; see `QuoteHandler::attachment_mimes()`.
+
+### 7. Submission rate limit — `src/Services/QuoteHandler.php`
+
+The quote form posts to `admin-post.php` with no authentication, so every submission is rate limited: one quote per 10 minutes per IP. The limit exists for two reasons — an attachment fills disk space, and each stored quote triggers a notification email. Text-only submissions are covered too; previously only uploads were, which left an unlimited path to the inbox.
+
+- Filterable through `openforms_quote_submission_interval` (set it to `0` to disable). The older `openforms_quote_upload_interval` still applies as the base value, so existing overrides keep working.
+- The IP is hashed before being stored, so no address is written to the database, and the limit is skipped for logged-in users who can already publish content — which keeps the form usable while testing.
+- The cooldown is claimed only after the quote is stored, so a submission rejected for validation or a bad upload does not lock the visitor out for 10 minutes.
+- Blocked submissions redirect back with the `throttle` notice.
+
+### 8. New quote notifications — `src/Services/QuoteHandler.php`
+
+Once a quote is stored, the site owner is emailed through WordPress' own mailer (`wp_mail()`), so any SMTP plugin or transactional mailer already in place picks the messages up without extra configuration.
+
+- **To** — the site admin email by default. Override it, or add more people with the `openforms_quote_notification_recipient` filter; returning an empty value turns notifications off.
+- **Subject** — `[Site name] New quote request from <name>`.
+- **Body** — an HTML table of the submitted fields plus a link to the quote's admin screen. Override it with the `openforms_quote_notification_body` filter.
+- **Reply-To** — the submitter's address, so replying to the notification goes back to the customer.
+- **Attachment** — when a file was uploaded it is attached to the email itself, not linked. The stored file sits in the private folder and is only reachable by a signed-in admin, so a link would be dead for anyone reading their mail on a phone. Files over 10MB (`openforms_quote_notification_max_attachment_size` to change) are left out — mail servers routinely refuse messages past a few tens of megabytes — and the email says so instead, so you know the file exists and to fetch it from the admin.
+- A delivery failure is logged through `wc_get_logger()` only; the quote stays saved and the visitor still sees the normal success notice.
+
+Note the mail is sent inline during the request, so a very large upload briefly delays the redirect while the message is handed to the mailer.
 
 ### 6. Orphan cleanup — `src/Services/Cleanup.php`
 

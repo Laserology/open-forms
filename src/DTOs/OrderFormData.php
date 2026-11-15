@@ -44,7 +44,7 @@ class OrderFormData {
 
 		add_meta_box(
 			'openforms-order-attachments',
-			__( 'Form Attachments', 'openforms' ),
+			__( 'Form Attachments', 'open-forms' ),
 			array( $this, 'render_meta_box' ),
 			$screen,
 			'normal',
@@ -78,7 +78,7 @@ class OrderFormData {
 				foreach ( $data as $entry ) {
 					echo '<tr>';
 					echo '<th>' . esc_html( $entry['field_name'] ) . '</th>';
-					echo '<td>' . ( 'file' === $entry['type'] ? DataHelpers::render_file( $entry, true, true ) : esc_html( $entry['value'] ) ) . '</td>';
+					echo '<td>' . ( 'file' === $entry['type'] ? DataHelpers::render_file( $entry, true, true ) : esc_html( $entry['value'] ) ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Both branches return escaped markup.
 					echo '</tr>';
 				}
 
@@ -88,7 +88,7 @@ class OrderFormData {
 		}
 
 		if ( ! $rendered ) {
-			echo '<p>' . esc_html__( 'No form attachments for this order.', 'openforms' ) . '</p>';
+			echo '<p>' . esc_html__( 'No form attachments for this order.', 'open-forms' ) . '</p>';
 		}
 	}
 
@@ -118,7 +118,7 @@ class OrderFormData {
 			$order->add_order_note(
 				sprintf(
 					/* translators: 1: item name, 2: submitted field values separated by "; ". Order note added at checkout to summarize the form content of a line item. */
-					__( 'OpenForms: %1$s - %2$s', 'openforms' ),
+					__( 'OpenForms: %1$s - %2$s', 'open-forms' ),
 					$item->get_name(),
 					implode( '; ', $lines )
 				)

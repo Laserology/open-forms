@@ -34,6 +34,10 @@ class Cleanup {
 		add_action( 'woocommerce_cart_item_restored', array( $this, 'restore_cart_item' ), 10, 2 );
 		add_action( 'woocommerce_cart_emptied', array( $this, 'cleanup_emptied_cart' ) );
 
+		// Abandoned carts leave uploads no hook ever sees.
+		add_action( 'init', array( $this, 'schedule_cleanup' ) );
+		add_action( 'openforms_cleanup_orphans', array( $this, 'cleanup_orphans' ) );
+
 		// Both hooks cover order deletion: HPOS and modern legacy stores fire
 		// woocommerce_before_delete_order (WooCommerce 8.0+), older stores only
 		// fire before_delete_post. Priority 1 runs before WooCommerce's own
@@ -174,6 +178,83 @@ class Cleanup {
 	}
 
 	/**
+	 * Schedule the daily orphan sweep once.
+	 */
+	public function schedule_cleanup(): void {
+		if ( ! wp_next_scheduled( 'openforms_cleanup_orphans' ) ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'openforms_cleanup_orphans' );
+		}
+	}
+
+	/**
+	 * Delete files no order or quote references. Cart references live in the
+	 * session and cannot be queried, so only files past the grace period count.
+	 */
+	public function cleanup_orphans(): void {
+		$files = glob( FieldHelpers::upload_dir() . '/*' );
+
+		if ( ! is_array( $files ) ) {
+			return;
+		}
+
+		$cutoff = time() - self::orphan_age();
+
+		foreach ( $files as $path ) {
+			if ( ! is_file( $path ) || filemtime( $path ) > $cutoff ) {
+				continue;
+			}
+
+			$parts = explode( '-', basename( $path ), 2 );
+
+			if ( count( $parts ) < 2 || ! FieldHelpers::is_valid_token( $parts[0] ) ) {
+				continue;
+			}
+
+			$token = $parts[0];
+
+			if ( $this->token_in_orders( $token ) || $this->token_in_quotes( $token ) ) {
+				continue;
+			}
+
+			$this->delete_file( $token );
+		}
+	}
+
+	/**
+	 * Age an unreferenced upload is kept, in seconds.
+	 *
+	 * @return int
+	 */
+	private static function orphan_age(): int {
+		/**
+		 * Filters how long an orphaned upload is kept, in seconds.
+		 *
+		 * @param int $seconds Age before the file is deleted.
+		 */
+		return (int) apply_filters( 'openforms_orphan_file_age', WEEK_IN_SECONDS );
+	}
+
+	/**
+	 * Whether a quote still references the file token.
+	 *
+	 * @param string $token File token.
+	 * @return bool
+	 */
+	private function token_in_quotes( string $token ): bool {
+		global $wpdb;
+
+		$found = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value LIKE %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				QuoteHandler::FILE_META,
+				'%' . $wpdb->esc_like( $token ) . '%'
+			)
+		);
+
+		return (bool) $found;
+	}
+
+	/**
 	 * Tokens currently queued for deletion.
 	 *
 	 * @return array
@@ -245,7 +326,7 @@ class Cleanup {
 		$needle  = '%' . $wpdb->esc_like( '"file_key":"' . $token . '"' ) . '%';
 
 		if ( empty( $exclude ) ) {
-			$found = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$found = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is built from $wpdb->prefix.
 				$wpdb->prepare(
 					"SELECT order_item_id FROM {$table} WHERE meta_key = 'openforms_data' AND meta_value LIKE %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 					$needle
@@ -254,7 +335,7 @@ class Cleanup {
 		} else {
 			$placeholders = implode( ',', array_fill( 0, count( $exclude ), '%d' ) );
 
-			$found = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$found = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is built from $wpdb->prefix.
 				$wpdb->prepare(
 					"SELECT order_item_id FROM {$table} WHERE meta_key = 'openforms_data' AND meta_value LIKE %s AND order_item_id NOT IN ( {$placeholders} ) LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 					array_merge( array( $needle ), $exclude )

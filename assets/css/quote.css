@@ -36,6 +36,19 @@
 	color: #b71c1c;
 }
 
+/* Shown while the form is submitting, so a slow upload does not read as a
+ * frozen page. The button is disabled at the same time. */
+.openforms-quote__status {
+	margin: 1.25em 0 0;
+	color: var(--wp--preset--color--contrast, #111111);
+	font-weight: 500;
+}
+
+.openforms-quote__form .wp-block-button__link[disabled] {
+	cursor: progress;
+	opacity: 0.6;
+}
+
 .openforms-quote__fields {
 	display: grid;
 	gap: 1em;

@@ -60,13 +60,19 @@ class ProductForm {
 			return;
 		}
 
-		$attrs = '';
+		$class = 'openforms-fields';
 
 		if ( $variation_id ) {
-			$attrs = ' openforms-variation-fields" data-variation-id="' . esc_attr( $variation_id ) . '" style="display:none;"';
+			$class .= ' openforms-variation-fields';
 		}
 
-		echo '<div class="openforms-fields' . $attrs . '>';
+		echo '<div class="' . esc_attr( $class ) . '"';
+
+		if ( $variation_id ) {
+			echo ' data-variation-id="' . esc_attr( $variation_id ) . '" style="display:none;"';
+		}
+
+		echo '>';
 
 		foreach ( $fields as $key => $field ) {
 			// Variation fields are prefixed with the variation ID so the

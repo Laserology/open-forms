@@ -27,12 +27,12 @@ class FieldHelpers {
 		return apply_filters(
 			'openforms_field_types',
 			array(
-				'text'     => array( 'label' => __( 'Text', 'openforms' ), 'input' => 'text' ),
-				'textarea' => array( 'label' => __( 'Textarea', 'openforms' ), 'input' => 'textarea' ),
-				'url'      => array( 'label' => __( 'URL', 'openforms' ), 'input' => 'url' ),
-				'email'    => array( 'label' => __( 'Email', 'openforms' ), 'input' => 'email' ),
-				'number'   => array( 'label' => __( 'Number', 'openforms' ), 'input' => 'number' ),
-				'file'     => array( 'label' => __( 'File Upload', 'openforms' ), 'input' => 'file' ),
+				'text'     => array( 'label' => __( 'Text', 'open-forms' ), 'input' => 'text' ),
+				'textarea' => array( 'label' => __( 'Textarea', 'open-forms' ), 'input' => 'textarea' ),
+				'url'      => array( 'label' => __( 'URL', 'open-forms' ), 'input' => 'url' ),
+				'email'    => array( 'label' => __( 'Email', 'open-forms' ), 'input' => 'email' ),
+				'number'   => array( 'label' => __( 'Number', 'open-forms' ), 'input' => 'number' ),
+				'file'     => array( 'label' => __( 'File Upload', 'open-forms' ), 'input' => 'file' ),
 			)
 		);
 	}
@@ -117,9 +117,9 @@ class FieldHelpers {
 		$required = ! empty( $field['required'] );
 
 		if ( 'file' === $type ) {
-			if ( $required && empty( $_FILES['openforms']['name'][ $input_key ] ) ) {
+			if ( $required && empty( $_FILES['openforms']['name'][ $input_key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce add-to-cart is a public action and core does not require a nonce.
 				/* translators: %s: field name. Shown when a required file field is left empty. */
-				return array( sprintf( __( '%s is required.', 'openforms' ), $name ) );
+				return array( sprintf( __( '%s is required.', 'open-forms' ), $name ) );
 			}
 
 			// Run the same checks the move will run, so a file that cannot be
@@ -129,28 +129,28 @@ class FieldHelpers {
 			return '' === $error ? array() : array( self::upload_error_message( $error, $name ) );
 		}
 
-		$value = isset( $_POST['openforms'][ $input_key ] ) ? wp_unslash( $_POST['openforms'][ $input_key ] ) : '';
+		$value = isset( $_POST['openforms'][ $input_key ] ) ? wp_unslash( $_POST['openforms'][ $input_key ] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- WooCommerce add-to-cart is public; the value is sanitized by sanitize() before use.
 		$value = is_string( $value ) ? $value : '';
 
 		if ( $required && '' === trim( $value ) ) {
 			/* translators: %s: field name. Shown when a required field is left empty. */
-			return array( sprintf( __( '%s is required.', 'openforms' ), $name ) );
+			return array( sprintf( __( '%s is required.', 'open-forms' ), $name ) );
 		}
 
 		if ( '' !== trim( $value ) ) {
 			if ( 'url' === $type && ! filter_var( $value, FILTER_VALIDATE_URL ) ) {
 				/* translators: %s: field name. Shown when the value is not a well-formed URL. */
-				return array( sprintf( __( '%s is not a valid URL.', 'openforms' ), $name ) );
+				return array( sprintf( __( '%s is not a valid URL.', 'open-forms' ), $name ) );
 			}
 
 			if ( 'email' === $type && ! is_email( $value ) ) {
 				/* translators: %s: field name. Shown when the value is not a well-formed email address. */
-				return array( sprintf( __( '%s is not a valid email address.', 'openforms' ), $name ) );
+				return array( sprintf( __( '%s is not a valid email address.', 'open-forms' ), $name ) );
 			}
 
 			if ( 'number' === $type && ! is_numeric( $value ) ) {
 				/* translators: %s: field name. Shown when the value is not numeric. */
-				return array( sprintf( __( '%s must be a number.', 'openforms' ), $name ) );
+				return array( sprintf( __( '%s must be a number.', 'open-forms' ), $name ) );
 			}
 		}
 
@@ -206,6 +206,33 @@ class FieldHelpers {
 		$match = glob( self::upload_dir() . '/' . $token . '-*' );
 
 		return array_values( array_filter( $match, 'is_file' ) );
+	}
+
+	/**
+	 * The requester's IP address, used to rate limit public uploads.
+	 *
+	 * Forwarded headers are client controlled, so they are only used when a
+	 * site opts in.
+	 *
+	 * @return string A validated IP address, or an empty string when unknown.
+	 */
+	public static function client_ip(): string {
+		/**
+		 * Filters whether trusted proxy headers may supply the client address.
+		 *
+		 * @param bool $trust Whether the forwarded headers can be trusted.
+		 */
+		if ( apply_filters( 'openforms_trust_proxy_headers', false ) && class_exists( 'WC_Geolocation' ) ) {
+			$ip = (string) \WC_Geolocation::get_ip_address();
+
+			if ( '' !== $ip ) {
+				return $ip;
+			}
+		}
+
+		$remote = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+
+		return filter_var( $remote, FILTER_VALIDATE_IP ) ? $remote : '';
 	}
 
 	/**
@@ -312,16 +339,18 @@ class FieldHelpers {
 			return null;
 		}
 
-		$tmp_name = $_FILES[ $group ]['tmp_name'][ $input_key ];
+		$tmp_name = $_FILES[ $group ]['tmp_name'][ $input_key ]; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotValidated, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Uploaded file path already validated by upload_error() and is_uploaded_file().
 		$name     = self::upload_name( $group, $input_key );
 
 		$folder = self::upload_dir();
 		$token  = bin2hex( random_bytes( 16 ) );
 		$dest   = $folder . '/' . $token . '-' . $name;
 
-		if ( ! move_uploaded_file( $tmp_name, $dest ) ) {
+		if ( ! move_uploaded_file( $tmp_name, $dest ) ) { // phpcs:ignore Generic.PHP.ForbiddenFunctions.Found -- move_uploaded_file() is the correct API for storing an uploaded file.
 			return null;
 		}
+
+		self::record_upload();
 
 		return array(
 			'file_key'  => $token,
@@ -341,14 +370,19 @@ class FieldHelpers {
 	 * @param string $input_key Input name key inside the group.
 	 * @param array  $mimes     Optional extension => mime map to restrict the
 	 *                          upload to. Empty accepts the site's own types.
-	 * @return string One of 'size', 'type' or 'upload', or an empty string.
+	 * @return string One of 'size', 'type', 'throttle' or 'upload', or an empty string.
 	 */
 	public static function upload_error( string $group, string $input_key, array $mimes = array() ): string {
-		if ( empty( $_FILES[ $group ]['name'][ $input_key ] ) ) {
+		if ( empty( $_FILES[ $group ]['name'][ $input_key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Hooked into WooCommerce add-to-cart, which is a public action.
 			return '';
 		}
 
-		$error = isset( $_FILES[ $group ]['error'][ $input_key ] ) ? (int) $_FILES[ $group ]['error'][ $input_key ] : UPLOAD_ERR_OK;
+		// Public form: bound how often an upload can be stored.
+		if ( ! self::upload_allowed() ) {
+			return 'throttle';
+		}
+
+		$error = isset( $_FILES[ $group ]['error'][ $input_key ] ) ? (int) $_FILES[ $group ]['error'][ $input_key ] : UPLOAD_ERR_OK; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Hooked into WooCommerce add-to-cart, which is a public action.
 
 		if ( UPLOAD_ERR_INI_SIZE === $error || UPLOAD_ERR_FORM_SIZE === $error ) {
 			return 'size';
@@ -358,7 +392,7 @@ class FieldHelpers {
 			return 'upload';
 		}
 
-		$tmp_name = isset( $_FILES[ $group ]['tmp_name'][ $input_key ] ) ? $_FILES[ $group ]['tmp_name'][ $input_key ] : '';
+		$tmp_name = isset( $_FILES[ $group ]['tmp_name'][ $input_key ] ) ? $_FILES[ $group ]['tmp_name'][ $input_key ] : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Hooked into WooCommerce add-to-cart; the path is validated with is_uploaded_file() below.
 		$name     = self::upload_name( $group, $input_key );
 
 		if ( empty( $tmp_name ) || '' === $name || ! is_uploaded_file( $tmp_name ) ) {
@@ -391,16 +425,21 @@ class FieldHelpers {
 	public static function upload_error_message( string $error, string $field_name ): string {
 		if ( 'size' === $error ) {
 			/* translators: %s: field or file name. Shown when an upload is larger than the allowed maximum. */
-			return sprintf( __( '%s is too large.', 'openforms' ), $field_name );
+			return sprintf( __( '%s is too large.', 'open-forms' ), $field_name );
 		}
 
 		if ( 'type' === $error ) {
 			/* translators: %s: field or file name. Shown when the uploaded file type is not allowed. */
-			return sprintf( __( '%s is not an allowed file type.', 'openforms' ), $field_name );
+			return sprintf( __( '%s is not an allowed file type.', 'open-forms' ), $field_name );
+		}
+
+		if ( 'throttle' === $error ) {
+			/* translators: Shown when an upload is refused because the requester uploaded too many files too recently. */
+			return __( 'Too many files have been uploaded from this address. Please try again later.', 'open-forms' );
 		}
 
 		/* translators: %s: field or file name. Shown when an upload fails or cannot be stored. */
-		return sprintf( __( '%s could not be uploaded.', 'openforms' ), $field_name );
+		return sprintf( __( '%s could not be uploaded.', 'open-forms' ), $field_name );
 	}
 
 	/**
@@ -419,6 +458,79 @@ class FieldHelpers {
 	}
 
 	/**
+	 * Uploads one requester may store per window. 0 disables the limit.
+	 *
+	 * @return int
+	 */
+	private static function upload_throttle_limit(): int {
+		/**
+		 * Filters how many uploads one requester may store per window.
+		 *
+		 * @param int $limit Maximum uploads. 0 disables the limit.
+		 */
+		return (int) apply_filters( 'openforms_upload_throttle_limit', 3 );
+	}
+
+	/**
+	 * The length of the upload throttle window, in seconds.
+	 *
+	 * @return int Window length in seconds.
+	 */
+	private static function upload_throttle_window(): int {
+		/**
+		 * Filters how long the upload throttle window lasts, in seconds.
+		 *
+		 * @param int $seconds Window length. 0 disables the limit.
+		 */
+		return (int) apply_filters( 'openforms_upload_throttle_window', 15 * MINUTE_IN_SECONDS );
+	}
+
+	/**
+	 * Whether the requester may still store an upload in the current window.
+	 *
+	 * @return bool
+	 */
+	private static function upload_allowed(): bool {
+		$key = self::upload_throttle_key();
+
+		if ( '' === $key ) {
+			return true;
+		}
+
+		return (int) get_transient( $key ) < self::upload_throttle_limit();
+	}
+
+	/**
+	 * Count one stored upload against the requester's window.
+	 */
+	private static function record_upload(): void {
+		$key = self::upload_throttle_key();
+
+		if ( '' === $key ) {
+			return;
+		}
+
+		$count = (int) get_transient( $key );
+
+		set_transient( $key, $count + 1, self::upload_throttle_window() );
+	}
+
+	/**
+	 * Upload count key, or an empty string when the limit does not apply.
+	 *
+	 * @return string
+	 */
+	private static function upload_throttle_key(): string {
+		if ( self::upload_throttle_limit() <= 0 || self::upload_throttle_window() <= 0 || current_user_can( 'manage_woocommerce' ) ) {
+			return '';
+		}
+
+		$ip = self::client_ip();
+
+		return '' === $ip ? '' : 'openforms_upload_' . md5( $ip );
+	}
+
+	/**
 	 * The sanitized file name submitted for an upload, or an empty string.
 	 *
 	 * @param string $group     $_FILES group name.
@@ -426,7 +538,7 @@ class FieldHelpers {
 	 * @return string
 	 */
 	private static function upload_name( string $group, string $input_key ): string {
-		$name = isset( $_FILES[ $group ]['name'][ $input_key ] ) ? $_FILES[ $group ]['name'][ $input_key ] : '';
+		$name = isset( $_FILES[ $group ]['name'][ $input_key ] ) ? $_FILES[ $group ]['name'][ $input_key ] : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Hooked into WooCommerce add-to-cart; sanitized with sanitize_file_name() below.
 
 		return is_string( $name ) ? sanitize_file_name( $name ) : '';
 	}

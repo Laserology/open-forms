@@ -14,7 +14,7 @@ msgstr ""
 "Language: \n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: \n"
-"X-Domain: openforms\n"
+"X-Domain: open-forms\n"
 
 #. Title of the meta box on the product edit screen where store owners
 #. configure the form fields. Also shown as the heading of the per-variation

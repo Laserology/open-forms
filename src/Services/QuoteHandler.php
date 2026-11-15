@@ -44,10 +44,10 @@ class QuoteHandler {
 	 */
 	public static function budget_options(): array {
 		return array(
-			__( 'Less than $1,000', 'openforms' ),
-			__( '$1,000 - $5,000', 'openforms' ),
-			__( '$5,000 - $10,000', 'openforms' ),
-			__( '$10,000+', 'openforms' ),
+			__( 'Less than $1,000', 'open-forms' ),
+			__( '$1,000 - $5,000', 'open-forms' ),
+			__( '$5,000 - $10,000', 'open-forms' ),
+			__( '$10,000+', 'open-forms' ),
 		);
 	}
 
@@ -81,19 +81,35 @@ class QuoteHandler {
 	}
 
 	/**
-	 * How long a requester must wait between quote attachments, in seconds. A
-	 * value of 0 disables the limit.
+	 * How long a requester must wait between quotes, in seconds. A value of 0
+	 * disables the limit.
 	 *
-	 * @return int
+	 * The cooldown covers every submission, not just ones with an attachment, so
+	 * an unauthenticated form cannot be used to fill the disk or flood the store
+	 * owner with notification mail.
+	 *
+	 * @return int Minimum number of seconds between quotes.
 	 */
-	public static function upload_interval(): int {
+	public static function submission_interval(): int {
+		$seconds = 10 * MINUTE_IN_SECONDS;
+
 		/**
-		 * Filters the minimum number of seconds between anonymous quote uploads
-		 * from the same IP.
+		 * Filters the minimum number of seconds between quote submissions from
+		 * the same IP.
 		 *
-		 * @param int $seconds Seconds between uploads. 0 disables the limit.
+		 * @deprecated Use openforms_quote_submission_interval instead, which
+		 *             covers attachments and text-only submissions alike.
+		 * @param int $seconds Seconds between submissions. 0 disables the limit.
 		 */
-		return (int) apply_filters( 'openforms_quote_upload_interval', 10 * MINUTE_IN_SECONDS );
+		$seconds = (int) apply_filters( 'openforms_quote_upload_interval', $seconds );
+
+		/**
+		 * Filters the minimum number of seconds between quote submissions from
+		 * the same IP.
+		 *
+		 * @param int $seconds Seconds between submissions. 0 disables the limit.
+		 */
+		return (int) apply_filters( 'openforms_quote_submission_interval', $seconds );
 	}
 
 	/**
@@ -115,6 +131,23 @@ class QuoteHandler {
 	}
 
 	/**
+	 * The largest attachment that is mailed with a quote notification, in bytes.
+	 * Anything bigger is left out of the email: mail servers routinely refuse
+	 * messages past a few tens of megabytes, and a rejected notification is worse
+	 * than one that arrives without the file. Raise or lower it with the filter.
+	 *
+	 * @return int Maximum attachment size in bytes.
+	 */
+	public static function notification_max_attachment_size(): int {
+		/**
+		 * Filters the largest file attached to a quote notification email.
+		 *
+		 * @param int $bytes Maximum attachment size in bytes.
+		 */
+		return (int) apply_filters( 'openforms_quote_notification_max_attachment_size', 10 * MB_IN_BYTES );
+	}
+
+	/**
 	 * Register the private quotes post type. It is only shown in the admin; the
 	 * Add New action is disabled because quotes are created by the form.
 	 */
@@ -123,9 +156,9 @@ class QuoteHandler {
 			'openforms_quote',
 			array(
 				'labels' => array(
-					'name'          => __( 'Quotes', 'openforms' ),
-					'singular_name' => __( 'Quote', 'openforms' ),
-					'menu_name'     => __( 'Quotes', 'openforms' ),
+					'name'          => __( 'Quotes', 'open-forms' ),
+					'singular_name' => __( 'Quote', 'open-forms' ),
+					'menu_name'     => __( 'Quotes', 'open-forms' ),
 				),
 				'public'             => false,
 				'publicly_queryable' => false,
@@ -134,6 +167,8 @@ class QuoteHandler {
 				'show_in_rest'       => false,
 				'menu_icon'          => 'dashicons-money-alt',
 				'supports'           => array( 'title' ),
+				// Shop order caps: quotes hold customer details.
+				'capability_type'    => array( 'shop_order', 'shop_orders' ),
 				'capabilities'       => array(
 					'create_posts' => 'do_not_allow',
 				),
@@ -153,11 +188,11 @@ class QuoteHandler {
 			exit;
 		};
 
-		if ( empty( $_POST['openforms_quote_nonce'] ) || ! wp_verify_nonce( wp_unslash( $_POST['openforms_quote_nonce'] ), 'openforms_quote_submit' ) ) {
+		if ( empty( $_POST['openforms_quote_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['openforms_quote_nonce'] ) ), 'openforms_quote_submit' ) ) {
 			$fail();
 		}
 
-		$data = isset( $_POST['openforms_quote'] ) && is_array( $_POST['openforms_quote'] ) ? wp_unslash( $_POST['openforms_quote'] ) : array();
+		$data = isset( $_POST['openforms_quote'] ) && is_array( $_POST['openforms_quote'] ) ? wp_unslash( $_POST['openforms_quote'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each field is sanitized individually below.
 
 		$name    = isset( $data['name'] ) ? sanitize_text_field( (string) $data['name'] ) : '';
 		$email   = isset( $data['email'] ) ? sanitize_email( (string) $data['email'] ) : '';
@@ -178,25 +213,25 @@ class QuoteHandler {
 			$budget = '';
 		}
 
+		// The form is open to anyone, so every submission is rate limited: an
+		// attachment fills disk space, and each stored quote sends the store
+		// owner an email. The cooldown is claimed further down, once the quote is
+		// safely stored, so a rejected submission costs the visitor nothing.
+		if ( $this->throttled() ) {
+			$fail( 'throttle' );
+		}
+
 		// The form is multipart, so an attachment can arrive alongside the text
 		// fields. It is stored in the private folder before the quote is created;
 		// a rejected upload aborts the submission.
 		$file = null;
 
 		if ( ! empty( $_FILES['openforms_quote']['name']['file'] ) ) {
-			// A form anyone can submit must not be usable to fill the disk, so a
-			// single IP can only attach a file once per interval.
-			if ( $this->upload_throttled() ) {
-				$fail( 'throttle' );
-			}
-
 			$file = FieldHelpers::upload_file( 'openforms_quote', 'file', self::attachment_mimes() );
 
 			if ( ! $file ) {
 				$fail( 'file' );
 			}
-
-			$this->throttle_upload();
 		}
 
 		$post_id = wp_insert_post(
@@ -204,6 +239,8 @@ class QuoteHandler {
 				'post_type'   => 'openforms_quote',
 				'post_status' => 'publish',
 				'post_title'  => $name,
+				// Unowned, so submitters cannot edit their own quote.
+				'post_author' => 0,
 			)
 		);
 
@@ -235,29 +272,145 @@ class QuoteHandler {
 			update_post_meta( $post_id, '_openforms_quote_source', $source );
 		}
 
+		// Claim the cooldown only now that the quote is stored, so a submission
+		// that fails validation or upload does not lock the visitor out.
+		$this->throttle();
+
+		$this->notify( $post_id, is_array( $file ) ? $file : array() );
+
 		wp_safe_redirect( add_query_arg( 'openforms_quote', 'success', $referer ) );
 		exit;
 	}
 
 	/**
-	 * Whether the requester has attached a quote file too recently.
+	 * Email the site owner about a stored quote. A delivery failure is only
+	 * logged: the quote is already saved, and the visitor must not be shown an
+	 * error that the admin mail caused.
+	 *
+	 * @param int   $post_id Quote post ID.
+	 * @param array $file    Attachment details, or an empty array.
+	 */
+	private function notify( int $post_id, array $file ): void {
+		$data = $this->data( $post_id );
+
+		/**
+		 * Filters the recipient of the new quote notification. Returning an empty
+		 * value turns the notification off.
+		 *
+		 * @param string $to      Recipient address.
+		 * @param int    $post_id Quote post ID.
+		 */
+		$to = (string) apply_filters( 'openforms_quote_notification_recipient', get_option( 'admin_email' ), $post_id );
+
+		if ( '' === $to || ! is_email( $to ) ) {
+			return;
+		}
+
+		$attachment = '';
+		$too_large  = '';
+
+		if ( ! empty( $file['file_name'] ) ) {
+			$attachment = $file['file_name'] . ' (' . size_format( (int) $file['file_size'] ) . ')';
+
+			// A file past the mail ceiling is named in the email but not attached,
+			// so the admin knows it exists and where to find it.
+			$too_large = (int) $file['file_size'] > self::notification_max_attachment_size()
+				? sprintf(
+					/* translators: %s: formatted file size. */
+					__( 'Too large to attach (%s) — download it from the quote in the admin.', 'open-forms' ),
+					size_format( (int) $file['file_size'] )
+				)
+				: '';
+		}
+
+		$rows = array_filter(
+			array(
+				__( 'Name', 'open-forms' )       => get_the_title( $post_id ),
+				__( 'Email', 'open-forms' )      => $data['email'],
+				__( 'Phone', 'open-forms' )      => $data['phone'],
+				__( 'Budget', 'open-forms' )     => $data['budget'],
+				__( 'Message', 'open-forms' )    => $data['message'],
+				__( 'Attachment', 'open-forms' ) => $attachment,
+			),
+			static function ( $value ) {
+				return '' !== trim( $value );
+			}
+		);
+
+		$subject = sprintf(
+			/* translators: 1: site name, 2: name of the person asking for a quote. */
+			__( '[%1$s] New quote request from %2$s', 'open-forms' ),
+			get_bloginfo( 'name' ),
+			get_the_title( $post_id )
+		);
+
+		$headers = array( 'Content-Type: text/html; charset=UTF-8' );
+
+		// Replying goes straight back to whoever asked for the quote.
+		if ( '' !== $data['email'] ) {
+			$headers[] = 'Reply-To: ' . $data['email'];
+		}
+
+		/* translators: %s: site name. */
+		$body  = '<p>' . esc_html( sprintf( __( 'A new quote request was submitted on %s.', 'open-forms' ), get_bloginfo( 'name' ) ) ) . '</p>';
+		$body .= '<table cellpadding="6" cellspacing="0" border="0" style="border-collapse:collapse;">';
+
+		foreach ( $rows as $label => $value ) {
+			$body .= '<tr><th align="left" valign="top" style="border-bottom:1px solid #eeeeee;">' . esc_html( $label ) . '</th>';
+			$body .= '<td style="border-bottom:1px solid #eeeeee;">' . nl2br( esc_html( $value ) ) . '</td></tr>';
+		}
+
+		$body .= '</table>';
+
+		if ( '' !== $too_large ) {
+			$body .= '<p>' . esc_html( $too_large ) . '</p>';
+		}
+
+		$body .= '<p><a href="' . esc_url( admin_url( 'post.php?post=' . $post_id . '&action=edit' ) ) . '">' . esc_html__( 'Open this quote in the admin', 'open-forms' ) . '</a></p>';
+
+		/**
+		 * Filters the HTML body of the new quote notification.
+		 *
+		 * @param string $body    Email body.
+		 * @param int    $post_id Quote post ID.
+		 */
+		$body = (string) apply_filters( 'openforms_quote_notification_body', $body, $post_id );
+
+		// Attachments live in the private folder and are only reachable by a
+		// signed-in admin, so the file is mailed itself rather than linked. Files
+		// past the size cap are skipped: the mail would be refused outright.
+		$attachments = '' === $too_large && ! empty( $file['file_path'] ) && is_readable( $file['file_path'] )
+			? array( $file['file_path'] )
+			: array();
+
+		if ( ! wp_mail( $to, $subject, $body, $headers, $attachments ) ) {
+			wc_get_logger()->log(
+				'error',
+				'OpenForms: the new quote notification email could not be sent.',
+				array( 'source' => 'openforms' )
+			);
+		}
+	}
+
+	/**
+	 * Whether the requester has submitted a quote too recently.
 	 *
 	 * @return bool
 	 */
-	private function upload_throttled(): bool {
+	private function throttled(): bool {
 		$key = $this->throttle_key();
 
 		return '' !== $key && (bool) get_transient( $key );
 	}
 
 	/**
-	 * Start the requester's cooldown once a file has been stored.
+	 * Start the requester's cooldown once a quote has been stored.
 	 */
-	private function throttle_upload(): void {
+	private function throttle(): void {
 		$key = $this->throttle_key();
 
 		if ( '' !== $key ) {
-			set_transient( $key, 1, self::upload_interval() );
+			set_transient( $key, 1, self::submission_interval() );
 		}
 	}
 
@@ -272,20 +425,14 @@ class QuoteHandler {
 	 * @return string
 	 */
 	private function throttle_key(): string {
-		if ( self::upload_interval() <= 0 || current_user_can( 'edit_posts' ) ) {
+		if ( self::submission_interval() <= 0 || current_user_can( 'edit_posts' ) ) {
 			return '';
 		}
 
-		// WooCommerce resolves the client IP behind proxies and CDNs; REMOTE_ADDR
-		// is the fallback when it cannot.
-		$ip = class_exists( 'WC_Geolocation' ) ? (string) \WC_Geolocation::get_ip_address() : '';
+		// Forwarded headers are client controlled; see client_ip().
+		$ip = FieldHelpers::client_ip();
 
-		if ( '' === $ip && ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
-			$remote = (string) wp_unslash( $_SERVER['REMOTE_ADDR'] );
-			$ip     = filter_var( $remote, FILTER_VALIDATE_IP ) ? $remote : '';
-		}
-
-		return '' === $ip ? '' : 'openforms_quote_upload_' . md5( $ip );
+		return '' === $ip ? '' : 'openforms_quote_submit_' . md5( $ip );
 	}
 
 	/**
@@ -301,9 +448,9 @@ class QuoteHandler {
 			$new[ $key ] = $label;
 
 			if ( 'title' === $key ) {
-				$new['openforms_email']  = __( 'Email', 'openforms' );
-				$new['openforms_budget'] = __( 'Budget', 'openforms' );
-				$new['openforms_source'] = __( 'Source', 'openforms' );
+				$new['openforms_email']  = __( 'Email', 'open-forms' );
+				$new['openforms_budget'] = __( 'Budget', 'open-forms' );
+				$new['openforms_source'] = __( 'Source', 'open-forms' );
 			}
 		}
 
@@ -344,7 +491,7 @@ class QuoteHandler {
 	public function add_meta_box(): void {
 		add_meta_box(
 			'openforms-quote-details',
-			__( 'Quote Details', 'openforms' ),
+			__( 'Quote Details', 'open-forms' ),
 			array( $this, 'render_meta_box' ),
 			'openforms_quote',
 			'normal',
@@ -363,11 +510,11 @@ class QuoteHandler {
 		$file   = get_post_meta( $post->ID, self::FILE_META, true );
 
 		$rows = array(
-			'name'    => array( __( 'Name', 'openforms' ), get_the_title( $post ) ),
-			'email'   => array( __( 'Email', 'openforms' ), $data['email'] ),
-			'phone'   => array( __( 'Phone', 'openforms' ), $data['phone'] ),
-			'budget'  => array( __( 'Budget', 'openforms' ), $data['budget'] ),
-			'message' => array( __( 'Message', 'openforms' ), $data['message'] ),
+			'name'    => array( __( 'Name', 'open-forms' ), get_the_title( $post ) ),
+			'email'   => array( __( 'Email', 'open-forms' ), $data['email'] ),
+			'phone'   => array( __( 'Phone', 'open-forms' ), $data['phone'] ),
+			'budget'  => array( __( 'Budget', 'open-forms' ), $data['budget'] ),
+			'message' => array( __( 'Message', 'open-forms' ), $data['message'] ),
 		);
 
 		echo '<table class="widefat striped">';
@@ -378,15 +525,15 @@ class QuoteHandler {
 			$value                = 'message' === $key ? nl2br( esc_html( $value ) ) : esc_html( $value );
 			$value                = '' !== trim( $value ) ? $value : '&mdash;';
 
-			echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . $value . '</td></tr>';
+			echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . $value . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $value is escaped above.
 		}
 
 		if ( is_array( $file ) && ! empty( $file['file_key'] ) ) {
-			echo '<tr><th scope="row">' . esc_html__( 'Attachment', 'openforms' ) . '</th><td>' . DataHelpers::render_file( $file, true, true ) . '</td></tr>';
+			echo '<tr><th scope="row">' . esc_html__( 'Attachment', 'open-forms' ) . '</th><td>' . DataHelpers::render_file( $file, true, true ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_file() returns escaped markup.
 		}
 
 		if ( $source && get_post( $source ) ) {
-			echo '<tr><th scope="row">' . esc_html__( 'Submitted from', 'openforms' ) . '</th><td><a href="' . esc_url( get_permalink( $source ) ) . '">' . esc_html( get_the_title( $source ) ) . '</a></td></tr>';
+			echo '<tr><th scope="row">' . esc_html__( 'Submitted from', 'open-forms' ) . '</th><td><a href="' . esc_url( get_permalink( $source ) ) . '">' . esc_html( get_the_title( $source ) ) . '</a></td></tr>';
 		}
 
 		echo '</tbody>';

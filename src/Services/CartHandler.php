@@ -117,7 +117,7 @@ class CartHandler {
 				continue;
 			}
 
-			$value = isset( $_POST['openforms'][ $input_key ] ) ? wp_unslash( $_POST['openforms'][ $input_key ] ) : '';
+			$value = isset( $_POST['openforms'][ $input_key ] ) ? wp_unslash( $_POST['openforms'][ $input_key ] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- WooCommerce add-to-cart is public; the value is sanitized by sanitize() below.
 			$value = is_string( $value ) ? $value : '';
 
 			$data[] = array(
