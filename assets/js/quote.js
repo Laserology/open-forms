@@ -1,14 +1,16 @@
 /**
  * Get a Quote frontend. The file picker is rendered as a themed button and the
- * native control is hidden, so mirror the chosen file's name next to it.
+ * native control is hidden, so mirror the chosen file names next to it.
  */
 (function () {
-	function fileName(input) {
+	function fileNames(input) {
 		if (!input.files || !input.files.length) {
 			return '';
 		}
 
-		return input.files[0].name;
+		return Array.prototype.map.call(input.files, function (file) {
+			return file.name;
+		}).join(', ');
 	}
 
 	document.addEventListener('change', function (event) {
@@ -26,7 +28,7 @@
 		var name = field ? field.querySelector('.openforms-quote__file-name') : null;
 
 		if (name) {
-			name.textContent = fileName(input);
+			name.textContent = fileNames(input);
 		}
 	});
 

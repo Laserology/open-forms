@@ -170,10 +170,20 @@ class Cleanup {
 			return;
 		}
 
-		$file = get_post_meta( $post_id, QuoteHandler::FILE_META, true );
+		$files = get_post_meta( $post_id, QuoteHandler::FILE_META, true );
 
-		if ( is_array( $file ) && ! empty( $file['file_key'] ) ) {
-			$this->delete_file( $file['file_key'] );
+		if ( ! is_array( $files ) ) {
+			return;
+		}
+
+		if ( isset( $files['file_key'] ) ) {
+			$files = array( $files );
+		}
+
+		foreach ( $files as $file ) {
+			if ( is_array( $file ) && ! empty( $file['file_key'] ) ) {
+				$this->delete_file( $file['file_key'] );
+			}
 		}
 	}
 

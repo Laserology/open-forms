@@ -44,7 +44,7 @@ class OpenForms {
 // Initialize the plugin once WooCommerce has loaded.
 add_action( 'plugins_loaded', function() {
 	if ( ! defined( 'OPENFORMS_VERSION' ) ) {
-		define( 'OPENFORMS_VERSION', '1.0.0' );
+		define( 'OPENFORMS_VERSION', '1.0.1' );
 	}
 	if ( ! defined( 'OPENFORMS_FILE' ) ) {
 		define( 'OPENFORMS_FILE', __FILE__ );

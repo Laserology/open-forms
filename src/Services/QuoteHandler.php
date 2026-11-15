@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class QuoteHandler {
 
 	/**
-	 * Post meta holding the details of a quote's uploaded attachment.
+	 * Post meta holding the details of a quote's uploaded attachments.
 	 *
 	 * @var string
 	 */
@@ -131,18 +131,17 @@ class QuoteHandler {
 	}
 
 	/**
-	 * The largest attachment that is mailed with a quote notification, in bytes.
-	 * Anything bigger is left out of the email: mail servers routinely refuse
-	 * messages past a few tens of megabytes, and a rejected notification is worse
-	 * than one that arrives without the file. Raise or lower it with the filter.
+	 * The combined size of the attachments mailed with a quote notification, in
+	 * bytes. A set past this budget is named in the email but not attached: mail
+	 * servers routinely refuse messages past a few tens of megabytes.
 	 *
-	 * @return int Maximum attachment size in bytes.
+	 * @return int Maximum combined attachment size in bytes.
 	 */
 	public static function notification_max_attachment_size(): int {
 		/**
-		 * Filters the largest file attached to a quote notification email.
+		 * Filters the combined size of the files attached to a quote notification.
 		 *
-		 * @param int $bytes Maximum attachment size in bytes.
+		 * @param int $bytes Maximum combined size in bytes.
 		 */
 		return (int) apply_filters( 'openforms_quote_notification_max_attachment_size', 10 * MB_IN_BYTES );
 	}
@@ -221,15 +220,15 @@ class QuoteHandler {
 			$fail( 'throttle' );
 		}
 
-		// The form is multipart, so an attachment can arrive alongside the text
-		// fields. It is stored in the private folder before the quote is created;
-		// a rejected upload aborts the submission.
-		$file = null;
+		// The form is multipart, so attachments can arrive alongside the text
+		// fields. They are stored before the quote is created; a rejected upload
+		// aborts the submission.
+		$files = array();
 
-		if ( ! empty( $_FILES['openforms_quote']['name']['file'] ) ) {
-			$file = FieldHelpers::upload_file( 'openforms_quote', 'file', self::attachment_mimes() );
+		if ( FieldHelpers::has_files( 'openforms_quote', 'file' ) ) {
+			$files = FieldHelpers::upload_files( 'openforms_quote', 'file', self::attachment_mimes() );
 
-			if ( ! $file ) {
+			if ( ! $files ) {
 				$fail( 'file' );
 			}
 		}
@@ -245,9 +244,11 @@ class QuoteHandler {
 		);
 
 		if ( ! $post_id || is_wp_error( $post_id ) ) {
-			// Do not leave the stored upload behind when the quote was not created.
-			if ( $file && ! empty( $file['file_path'] ) ) {
-				unlink( $file['file_path'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			// Do not leave the stored uploads behind when the quote was not created.
+			foreach ( $files as $stored ) {
+				if ( ! empty( $stored['file_path'] ) ) {
+					unlink( $stored['file_path'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+				}
 			}
 
 			$fail();
@@ -264,8 +265,8 @@ class QuoteHandler {
 			)
 		);
 
-		if ( $file ) {
-			update_post_meta( $post_id, self::FILE_META, $file );
+		if ( $files ) {
+			update_post_meta( $post_id, self::FILE_META, $files );
 		}
 
 		if ( $source ) {
@@ -276,7 +277,7 @@ class QuoteHandler {
 		// that fails validation or upload does not lock the visitor out.
 		$this->throttle();
 
-		$this->notify( $post_id, is_array( $file ) ? $file : array() );
+		$this->notify( $post_id, $files );
 
 		wp_safe_redirect( add_query_arg( 'openforms_quote', 'success', $referer ) );
 		exit;
@@ -288,9 +289,9 @@ class QuoteHandler {
 	 * error that the admin mail caused.
 	 *
 	 * @param int   $post_id Quote post ID.
-	 * @param array $file    Attachment details, or an empty array.
+	 * @param array $files   Stored attachment details.
 	 */
-	private function notify( int $post_id, array $file ): void {
+	private function notify( int $post_id, array $files ): void {
 		$data = $this->data( $post_id );
 
 		/**
@@ -306,31 +307,37 @@ class QuoteHandler {
 			return;
 		}
 
-		$attachment = '';
-		$too_large  = '';
+		$names      = array();
+		$total_size = 0;
 
-		if ( ! empty( $file['file_name'] ) ) {
-			$attachment = $file['file_name'] . ' (' . size_format( (int) $file['file_size'] ) . ')';
+		foreach ( $files as $file ) {
+			if ( empty( $file['file_name'] ) ) {
+				continue;
+			}
 
-			// A file past the mail ceiling is named in the email but not attached,
-			// so the admin knows it exists and where to find it.
-			$too_large = (int) $file['file_size'] > self::notification_max_attachment_size()
-				? sprintf(
-					/* translators: %s: formatted file size. */
-					__( 'Too large to attach (%s) — download it from the quote in the admin.', 'open-forms' ),
-					size_format( (int) $file['file_size'] )
-				)
-				: '';
+			$size        = (int) $file['file_size'];
+			$total_size += $size;
+			$names[]     = $file['file_name'] . ' (' . size_format( $size ) . ')';
 		}
+
+		// A set past the mail budget is named in the email but not attached, so
+		// the admin knows it exists and where to find it.
+		$too_large = $total_size > self::notification_max_attachment_size()
+			? sprintf(
+				/* translators: %s: formatted total file size. */
+				__( 'Too large to attach (%s) — download from the quote in the admin.', 'open-forms' ),
+				size_format( $total_size )
+			)
+			: '';
 
 		$rows = array_filter(
 			array(
-				__( 'Name', 'open-forms' )       => get_the_title( $post_id ),
-				__( 'Email', 'open-forms' )      => $data['email'],
-				__( 'Phone', 'open-forms' )      => $data['phone'],
-				__( 'Budget', 'open-forms' )     => $data['budget'],
-				__( 'Message', 'open-forms' )    => $data['message'],
-				__( 'Attachment', 'open-forms' ) => $attachment,
+				__( 'Name', 'open-forms' )        => get_the_title( $post_id ),
+				__( 'Email', 'open-forms' )       => $data['email'],
+				__( 'Phone', 'open-forms' )       => $data['phone'],
+				__( 'Budget', 'open-forms' )      => $data['budget'],
+				__( 'Message', 'open-forms' )     => $data['message'],
+				__( 'Attachments', 'open-forms' ) => implode( "\n", $names ),
 			),
 			static function ( $value ) {
 				return '' !== trim( $value );
@@ -377,11 +384,17 @@ class QuoteHandler {
 		$body = (string) apply_filters( 'openforms_quote_notification_body', $body, $post_id );
 
 		// Attachments live in the private folder and are only reachable by a
-		// signed-in admin, so the file is mailed itself rather than linked. Files
-		// past the size cap are skipped: the mail would be refused outright.
-		$attachments = '' === $too_large && ! empty( $file['file_path'] ) && is_readable( $file['file_path'] )
-			? array( $file['file_path'] )
-			: array();
+		// signed-in admin, so they are mailed rather than linked. The whole set is
+		// skipped past the budget: the mail would be refused outright.
+		$attachments = array();
+
+		if ( '' === $too_large ) {
+			foreach ( $files as $file ) {
+				if ( ! empty( $file['file_path'] ) && is_readable( $file['file_path'] ) ) {
+					$attachments[] = $file['file_path'];
+				}
+			}
+		}
 
 		if ( ! wp_mail( $to, $subject, $body, $headers, $attachments ) ) {
 			wc_get_logger()->log(
@@ -507,7 +520,7 @@ class QuoteHandler {
 	public function render_meta_box( \WP_Post $post ): void {
 		$data   = $this->data( $post->ID );
 		$source = (int) get_post_meta( $post->ID, '_openforms_quote_source', true );
-		$file   = get_post_meta( $post->ID, self::FILE_META, true );
+		$files  = $this->files( $post->ID );
 
 		$rows = array(
 			'name'    => array( __( 'Name', 'open-forms' ), get_the_title( $post ) ),
@@ -528,8 +541,14 @@ class QuoteHandler {
 			echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . $value . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $value is escaped above.
 		}
 
-		if ( is_array( $file ) && ! empty( $file['file_key'] ) ) {
-			echo '<tr><th scope="row">' . esc_html__( 'Attachment', 'open-forms' ) . '</th><td>' . DataHelpers::render_file( $file, true, true ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_file() returns escaped markup.
+		if ( $files ) {
+			echo '<tr><th scope="row">' . esc_html__( 'Attachments', 'open-forms' ) . '</th><td>';
+
+			foreach ( $files as $file ) {
+				echo DataHelpers::render_file( $file, true, true ) . '<br />'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_file() returns escaped markup.
+			}
+
+			echo '</td></tr>';
 		}
 
 		if ( $source && get_post( $source ) ) {
@@ -538,6 +557,26 @@ class QuoteHandler {
 
 		echo '</tbody>';
 		echo '</table>';
+	}
+
+	/**
+	 * The stored attachment list, accepting the old single-file value.
+	 *
+	 * @param int $post_id Quote post ID.
+	 * @return array
+	 */
+	private function files( int $post_id ): array {
+		$files = get_post_meta( $post_id, self::FILE_META, true );
+
+		if ( ! is_array( $files ) ) {
+			return array();
+		}
+
+		if ( isset( $files['file_key'] ) ) {
+			return array( $files );
+		}
+
+		return $files;
 	}
 
 	/**

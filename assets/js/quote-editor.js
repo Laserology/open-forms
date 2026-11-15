@@ -109,7 +109,7 @@
 			} else if (field.type === 'file') {
 				// Mirrors the frontend: a themed button labels the hidden input.
 				input = el('span', { className: 'openforms-quote__file' },
-					el('span', { className: 'openforms-quote__file-button wp-block-button__link wp-element-button' + inputClass, style: borderProps.style }, __('Choose a file', 'open-forms'))
+					el('span', { className: 'openforms-quote__file-button wp-block-button__link wp-element-button' + inputClass, style: borderProps.style }, __('Choose files', 'open-forms'))
 				);
 			} else {
 				inputProps.type = field.type;

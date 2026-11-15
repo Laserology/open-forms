@@ -294,8 +294,8 @@ class GetQuote {
 		$out  = '<p class="openforms-quote__field openforms-quote__field--full' . $class . '"' . $style . '>';
 		$out .= '<span class="openforms-quote__label" id="' . esc_attr( $id ) . '-label">' . esc_html( $label ) . '</span>';
 		$out .= '<span class="openforms-quote__file">';
-		$out .= '<input type="file" class="openforms-quote__file-input" id="' . esc_attr( $id ) . '" name="openforms_quote[' . esc_attr( $key ) . ']" accept="' . esc_attr( QuoteHandler::attachment_accept() ) . '" aria-labelledby="' . esc_attr( $id ) . '-label" />';
-		$out .= '<label class="openforms-quote__file-button wp-block-button__link wp-element-button' . $button_class . '"' . $button_style . ' for="' . esc_attr( $id ) . '">' . esc_html__( 'Choose a file', 'open-forms' ) . '</label>';
+		$out .= '<input type="file" class="openforms-quote__file-input" id="' . esc_attr( $id ) . '" name="openforms_quote[' . esc_attr( $key ) . '][]" accept="' . esc_attr( QuoteHandler::attachment_accept() ) . '" aria-labelledby="' . esc_attr( $id ) . '-label" multiple />';
+		$out .= '<label class="openforms-quote__file-button wp-block-button__link wp-element-button' . $button_class . '"' . $button_style . ' for="' . esc_attr( $id ) . '">' . esc_html__( 'Choose files', 'open-forms' ) . '</label>';
 		$out .= '<span class="openforms-quote__file-name" aria-live="polite"></span>';
 		$out .= '</span>';
 		$out .= '</p>';
