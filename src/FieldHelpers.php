@@ -209,6 +209,33 @@ class FieldHelpers {
 	}
 
 	/**
+	 * The requester's IP address, used to rate limit public uploads.
+	 *
+	 * Forwarded headers are client controlled, so they are only used when a
+	 * site opts in.
+	 *
+	 * @return string A validated IP address, or an empty string when unknown.
+	 */
+	public static function client_ip(): string {
+		/**
+		 * Filters whether trusted proxy headers may supply the client address.
+		 *
+		 * @param bool $trust Whether the forwarded headers can be trusted.
+		 */
+		if ( apply_filters( 'openforms_trust_proxy_headers', false ) && class_exists( 'WC_Geolocation' ) ) {
+			$ip = (string) \WC_Geolocation::get_ip_address();
+
+			if ( '' !== $ip ) {
+				return $ip;
+			}
+		}
+
+		$remote = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+
+		return filter_var( $remote, FILTER_VALIDATE_IP ) ? $remote : '';
+	}
+
+	/**
 	 * Path to the private uploads folder. Files stored here are never served
 	 * directly: the folder carries the server protection files, and content is
 	 * handed out through the authorized Download endpoint only. Hosts whose web
@@ -323,6 +350,8 @@ class FieldHelpers {
 			return null;
 		}
 
+		self::record_upload();
+
 		return array(
 			'file_key'  => $token,
 			'file_name' => $name,
@@ -341,11 +370,16 @@ class FieldHelpers {
 	 * @param string $input_key Input name key inside the group.
 	 * @param array  $mimes     Optional extension => mime map to restrict the
 	 *                          upload to. Empty accepts the site's own types.
-	 * @return string One of 'size', 'type' or 'upload', or an empty string.
+	 * @return string One of 'size', 'type', 'throttle' or 'upload', or an empty string.
 	 */
 	public static function upload_error( string $group, string $input_key, array $mimes = array() ): string {
 		if ( empty( $_FILES[ $group ]['name'][ $input_key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Hooked into WooCommerce add-to-cart, which is a public action.
 			return '';
+		}
+
+		// Public form: bound how often an upload can be stored.
+		if ( ! self::upload_allowed() ) {
+			return 'throttle';
 		}
 
 		$error = isset( $_FILES[ $group ]['error'][ $input_key ] ) ? (int) $_FILES[ $group ]['error'][ $input_key ] : UPLOAD_ERR_OK; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Hooked into WooCommerce add-to-cart, which is a public action.
@@ -399,6 +433,11 @@ class FieldHelpers {
 			return sprintf( __( '%s is not an allowed file type.', 'open-forms' ), $field_name );
 		}
 
+		if ( 'throttle' === $error ) {
+			/* translators: Shown when an upload is refused because the requester uploaded too many files too recently. */
+			return __( 'Too many files have been uploaded from this address. Please try again later.', 'open-forms' );
+		}
+
 		/* translators: %s: field or file name. Shown when an upload fails or cannot be stored. */
 		return sprintf( __( '%s could not be uploaded.', 'open-forms' ), $field_name );
 	}
@@ -416,6 +455,79 @@ class FieldHelpers {
 		 * @param int $size Maximum size in bytes.
 		 */
 		return (int) apply_filters( 'openforms_max_upload_size', 75 * MB_IN_BYTES );
+	}
+
+	/**
+	 * Uploads one requester may store per window. 0 disables the limit.
+	 *
+	 * @return int
+	 */
+	private static function upload_throttle_limit(): int {
+		/**
+		 * Filters how many uploads one requester may store per window.
+		 *
+		 * @param int $limit Maximum uploads. 0 disables the limit.
+		 */
+		return (int) apply_filters( 'openforms_upload_throttle_limit', 3 );
+	}
+
+	/**
+	 * The length of the upload throttle window, in seconds.
+	 *
+	 * @return int Window length in seconds.
+	 */
+	private static function upload_throttle_window(): int {
+		/**
+		 * Filters how long the upload throttle window lasts, in seconds.
+		 *
+		 * @param int $seconds Window length. 0 disables the limit.
+		 */
+		return (int) apply_filters( 'openforms_upload_throttle_window', 15 * MINUTE_IN_SECONDS );
+	}
+
+	/**
+	 * Whether the requester may still store an upload in the current window.
+	 *
+	 * @return bool
+	 */
+	private static function upload_allowed(): bool {
+		$key = self::upload_throttle_key();
+
+		if ( '' === $key ) {
+			return true;
+		}
+
+		return (int) get_transient( $key ) < self::upload_throttle_limit();
+	}
+
+	/**
+	 * Count one stored upload against the requester's window.
+	 */
+	private static function record_upload(): void {
+		$key = self::upload_throttle_key();
+
+		if ( '' === $key ) {
+			return;
+		}
+
+		$count = (int) get_transient( $key );
+
+		set_transient( $key, $count + 1, self::upload_throttle_window() );
+	}
+
+	/**
+	 * Upload count key, or an empty string when the limit does not apply.
+	 *
+	 * @return string
+	 */
+	private static function upload_throttle_key(): string {
+		if ( self::upload_throttle_limit() <= 0 || self::upload_throttle_window() <= 0 || current_user_can( 'manage_woocommerce' ) ) {
+			return '';
+		}
+
+		$ip = self::client_ip();
+
+		return '' === $ip ? '' : 'openforms_upload_' . md5( $ip );
 	}
 
 	/**
