@@ -123,9 +123,9 @@ class QuoteHandler {
 			'openforms_quote',
 			array(
 				'labels' => array(
-					'name'          => __( 'Quotes', 'openforms' ),
-					'singular_name' => __( 'Quote', 'openforms' ),
-					'menu_name'     => __( 'Quotes', 'openforms' ),
+					'name'          => __( 'Quotes', 'open-forms' ),
+					'singular_name' => __( 'Quote', 'open-forms' ),
+					'menu_name'     => __( 'Quotes', 'open-forms' ),
 				),
 				'public'             => false,
 				'publicly_queryable' => false,
@@ -178,25 +178,25 @@ class QuoteHandler {
 			$budget = '';
 		}
 
+		// The form is open to anyone, so every submission is rate limited: an
+		// attachment fills disk space, and each stored quote sends the store
+		// owner an email. The cooldown is claimed further down, once the quote is
+		// safely stored, so a rejected submission costs the visitor nothing.
+		if ( $this->throttled() ) {
+			$fail( 'throttle' );
+		}
+
 		// The form is multipart, so an attachment can arrive alongside the text
 		// fields. It is stored in the private folder before the quote is created;
 		// a rejected upload aborts the submission.
 		$file = null;
 
 		if ( ! empty( $_FILES['openforms_quote']['name']['file'] ) ) {
-			// A form anyone can submit must not be usable to fill the disk, so a
-			// single IP can only attach a file once per interval.
-			if ( $this->upload_throttled() ) {
-				$fail( 'throttle' );
-			}
-
 			$file = FieldHelpers::upload_file( 'openforms_quote', 'file', self::attachment_mimes() );
 
 			if ( ! $file ) {
 				$fail( 'file' );
 			}
-
-			$this->throttle_upload();
 		}
 
 		$post_id = wp_insert_post(
@@ -235,6 +235,12 @@ class QuoteHandler {
 			update_post_meta( $post_id, '_openforms_quote_source', $source );
 		}
 
+		// Claim the cooldown only now that the quote is stored, so a submission
+		// that fails validation or upload does not lock the visitor out.
+		$this->throttle();
+
+		$this->notify( $post_id, is_array( $file ) ? $file : array() );
+
 		wp_safe_redirect( add_query_arg( 'openforms_quote', 'success', $referer ) );
 		exit;
 	}
@@ -244,7 +250,7 @@ class QuoteHandler {
 	 *
 	 * @return bool
 	 */
-	private function upload_throttled(): bool {
+	private function throttled(): bool {
 		$key = $this->throttle_key();
 
 		return '' !== $key && (bool) get_transient( $key );
@@ -253,11 +259,11 @@ class QuoteHandler {
 	/**
 	 * Start the requester's cooldown once a file has been stored.
 	 */
-	private function throttle_upload(): void {
+	private function throttle(): void {
 		$key = $this->throttle_key();
 
 		if ( '' !== $key ) {
-			set_transient( $key, 1, self::upload_interval() );
+			set_transient( $key, 1, self::submission_interval() );
 		}
 	}
 
@@ -272,7 +278,7 @@ class QuoteHandler {
 	 * @return string
 	 */
 	private function throttle_key(): string {
-		if ( self::upload_interval() <= 0 || current_user_can( 'edit_posts' ) ) {
+		if ( self::submission_interval() <= 0 || current_user_can( 'edit_posts' ) ) {
 			return '';
 		}
 
@@ -281,11 +287,11 @@ class QuoteHandler {
 		$ip = class_exists( 'WC_Geolocation' ) ? (string) \WC_Geolocation::get_ip_address() : '';
 
 		if ( '' === $ip && ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
-			$remote = (string) wp_unslash( $_SERVER['REMOTE_ADDR'] );
+			$remote = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
 			$ip     = filter_var( $remote, FILTER_VALIDATE_IP ) ? $remote : '';
 		}
 
-		return '' === $ip ? '' : 'openforms_quote_upload_' . md5( $ip );
+		return '' === $ip ? '' : 'openforms_quote_submit_' . md5( $ip );
 	}
 
 	/**
@@ -344,7 +350,7 @@ class QuoteHandler {
 	public function add_meta_box(): void {
 		add_meta_box(
 			'openforms-quote-details',
-			__( 'Quote Details', 'openforms' ),
+			__( 'Quote Details', 'open-forms' ),
 			array( $this, 'render_meta_box' ),
 			'openforms_quote',
 			'normal',
@@ -378,15 +384,15 @@ class QuoteHandler {
 			$value                = 'message' === $key ? nl2br( esc_html( $value ) ) : esc_html( $value );
 			$value                = '' !== trim( $value ) ? $value : '&mdash;';
 
-			echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . $value . '</td></tr>';
+			echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . $value . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $value is escaped above.
 		}
 
 		if ( is_array( $file ) && ! empty( $file['file_key'] ) ) {
-			echo '<tr><th scope="row">' . esc_html__( 'Attachment', 'openforms' ) . '</th><td>' . DataHelpers::render_file( $file, true, true ) . '</td></tr>';
+			echo '<tr><th scope="row">' . esc_html__( 'Attachment', 'open-forms' ) . '</th><td>' . DataHelpers::render_file( $file, true, true ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_file() returns escaped markup.
 		}
 
 		if ( $source && get_post( $source ) ) {
-			echo '<tr><th scope="row">' . esc_html__( 'Submitted from', 'openforms' ) . '</th><td><a href="' . esc_url( get_permalink( $source ) ) . '">' . esc_html( get_the_title( $source ) ) . '</a></td></tr>';
+			echo '<tr><th scope="row">' . esc_html__( 'Submitted from', 'open-forms' ) . '</th><td><a href="' . esc_url( get_permalink( $source ) ) . '">' . esc_html( get_the_title( $source ) ) . '</a></td></tr>';
 		}
 
 		echo '</tbody>';

@@ -245,7 +245,7 @@ class Cleanup {
 		$needle  = '%' . $wpdb->esc_like( '"file_key":"' . $token . '"' ) . '%';
 
 		if ( empty( $exclude ) ) {
-			$found = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$found = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is built from $wpdb->prefix.
 				$wpdb->prepare(
 					"SELECT order_item_id FROM {$table} WHERE meta_key = 'openforms_data' AND meta_value LIKE %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 					$needle
@@ -254,7 +254,7 @@ class Cleanup {
 		} else {
 			$placeholders = implode( ',', array_fill( 0, count( $exclude ), '%d' ) );
 
-			$found = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$found = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is built from $wpdb->prefix.
 				$wpdb->prepare(
 					"SELECT order_item_id FROM {$table} WHERE meta_key = 'openforms_data' AND meta_value LIKE %s AND order_item_id NOT IN ( {$placeholders} ) LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 					array_merge( array( $needle ), $exclude )
