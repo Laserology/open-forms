@@ -49,3 +49,5 @@ wp-config.php
 
 # Deployment
 /deploy.sh
+/open-forms/deploy.sh
+/open-forms-for-wc/deploy.sh

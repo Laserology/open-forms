@@ -61,18 +61,20 @@ jobs:
             Task:
 
             1. Stand up a local WordPress environment running the TARGET version,
-               with this repository installed as a plugin. Docker and Node are
-               available on the runner. Keep environment config out of the
-               repository -- write it outside the working tree and pass it in --
-               so it doesn't dirty the diff.
-            2. Activate the plugin and confirm by inspection that it loads with no
+               with both plugins in this repository installed (`open-forms/` and
+               `open-forms-for-wc/`; the WooCommerce add-on also needs WooCommerce
+               installed and active). Docker and Node are available on the runner.
+               Keep environment config out of the repository -- write it outside
+               the working tree and pass it in -- so it doesn't dirty the diff.
+            2. Activate the plugins and confirm by inspection that they load with no
                fatal errors, warnings, or notices. Read the actual logs and output.
                Do not assume it worked because a command exited zero.
             3. Re-run whatever checks the project defines in AGENTS.md.
-            4. Only after you have observed it working, set `Tested up to` in
-               readme.txt to the target version. Use major.minor only -- e.g.
-               `7.2`, never `7.2.1`. Change nothing else: not `Stable tag`, not
-               `Version`, not the plugin header, not CHANGELOG.md.
+            4. Only after you have observed it working, set `Tested up to` in both
+               `open-forms/readme.txt` and `open-forms-for-wc/readme.txt` to the
+               target version. Use major.minor only -- e.g. `7.2`, never `7.2.1`.
+               Change nothing else: not `Stable tag`, not `Version`, not the plugin
+               header, not CHANGELOG.md.
             5. Open a pull request titled "Bump Tested up to to <target version>".
                If an open pull request for this already exists, update it rather
                than opening a second one.
