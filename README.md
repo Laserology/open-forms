@@ -15,16 +15,21 @@ The goal of this plugin is to provied a bare-bones, simple, and easy no-nonsense
 
 ## What it does
 
-OpenForms adds a form builder to the product edit screen. Each form is a simple list of fields, and each field can be one of six built-in types:
+OpenForms adds a form builder to the product edit screen. Each form is a simple list of fields, and each field can be one of the built-in generic types:
 
 | Field type | Renders as | Notes |
 | --- | --- | --- |
-| Text | single-line input | default type |
-| Textarea | multi-line textarea | |
-| URL | URL input | validated client-side & server-side |
+| One-line text | text input | default type |
+| Multi-line text | textarea | |
 | Email | email input | validated client-side & server-side |
+| URL | URL input | validated client-side & server-side |
+| Phone number | tel input | |
 | Number | number input | validated server-side |
-| File Upload | file input | validated, sanitized, stored privately |
+| Password | password input | |
+| Colour | colour picker | validated server-side |
+| Date / Time | date / time input | |
+| Dropdown | select | options configured per field |
+| File upload | file input | validated, sanitized, stored privately |
 
 New field types can be registered by developers through the [`openforms_field_types`](#extending) filter.
 
@@ -51,7 +56,7 @@ Every field can be marked as **required**. Any submitted file goes through WordP
 Edit any product and open the **OpenForms** tab under **Product data**:
 
 - Tick **Enable forms** to activate the form on the product page.
-- Use **Add Field** to create rows, choosing a name, a field type, and whether the field is required.
+- Use **Add Field** to create rows, choosing a name, a field type, an optional default value, and whether the field is required. Dropdown fields also get a one-option-per-line list.
 - Use **Remove** to delete a row.
 - Click **Update** to save.
 
@@ -76,6 +81,16 @@ The shopper fills in the fields and adds the product to the cart. Required field
 - On the customer-facing **order received** page, order details and order emails, the submitted values are shown as a neat table (files display their name and size; the raw JSON is hidden).
 - In the admin, the **Form Attachments** meta box on the order screen lists the submitted fields for each line item, including the file name and size.
 
+### 4. The "Get a Quote" block
+
+Insert the **Get a Quote** block into any post or page. It starts with a heading, a paragraph, a success message, a few fields and a submit button, all of which are normal blocks you can add, remove and reorder.
+
+- Every form gets its own random ID and a **Form name** (set in the block sidebar). Quotes are grouped under that name in the admin and prefixed with it in the quotes list.
+- **Quote Field** blocks are generic inputs. Pick a type, give the field a title, placeholder, default value, required flag, full-width flag and (optionally) show it in the admin quick preview. Dropdown fields take their own option list.
+- Fields may be dragged into a group, row, column or stack inside the form. They are hidden on the frontend unless a quote form surrounds them.
+- The **Success Message** block is always visible in the editor so you can restyle and reposition it; on the frontend it only appears after a successful submission.
+- Submissions appear under **Quotes** in the admin. Deleting a form's block removes the form from the admin form filter; stored quotes keep their data.
+
 ---
 
 ## How it works (developer perspective)
@@ -87,7 +102,7 @@ The plugin is deliberately modular. `OpenForms.php` bootstraps everything: it gu
 ```
 OpenForms.php              Entry point, constants, PHP 8.0 guard, plugin class
 src/
-├── Init.php               Registers the autoloader and loads the eight modules
+├── Init.php               Registers the autoloader and loads the modules
 ├── FieldHelpers.php       Shared field registry + render/validate/sanitize/upload helpers
 ├── DataHelpers.php        Shared helpers for the form payload JSON (decode, tokens, file render)
 ├── Admin/
@@ -98,9 +113,10 @@ src/
 │   ├── CartHandler.php    Validation, cart item data, cart/checkout display, order meta
 │   ├── Download.php       Authorized download endpoint for private uploads
 │   ├── Cleanup.php        Deletes uploads orphaned by removed cart items / deleted orders
+│   ├── FormRegistry.php   Tracks the quote forms (ID, name, fields) found in block content
 │   └── QuoteHandler.php   Quote submissions, notification emails, admin viewer for the get-a-quote block
 ├── Blocks/
-│   └── GetQuote.php       "Get a Quote" block with server-side render callback
+│   └── GetQuote.php       "Get a Quote" form, generic field and success message blocks
 └── DTOs/
     └── OrderFormData.php  Order-screen meta box + summary order notes
 assets/
@@ -114,11 +130,12 @@ assets/
 
 The `FieldHelpers` class is the single source of truth for fields:
 
-- `FieldHelpers::types()` — returns the registered field types. Wrapped in the `openforms_field_types` filter.
+- `FieldHelpers::types()` — returns the registered field types. Wrapped in the `openforms_field_types` filter. The generic types are One-line text, Multi-line text, Email, URL, Phone number, Number, Password, Colour, Date, Time, File upload and Dropdown; each maps to a native input type. Dropdown fields carry their own option list through `FieldHelpers::options()`.
 - `FieldHelpers::for_post( $post_id )` — returns the cleaned, enabled field list for a product or variation, keyed by field key. Returns an empty array when forms are disabled.
 - `FieldHelpers::render( $input_key, $field )` — outputs the label + input markup.
 - `FieldHelpers::validate( $input_key, $field )` — returns an array of error messages (required check, URL/email/number format, file upload errors).
 - `FieldHelpers::sanitize( $type, $value )` — type-aware sanitization of submitted values.
+- `FieldHelpers::sanitize_default( $type, $value, $options )` — cleans the authored default value for a field (dropdowns must match their options; files have none).
 - `FieldHelpers::save_file( $input_key )` — moves an uploaded file into the private `openforms` uploads folder after WordPress filetype checks, storing it under a random token and returning file details (token, name, download url, path, size).
 - `FieldHelpers::is_valid_token( $token )` / `FieldHelpers::files_for_token( $token )` — shared token validation and file lookup used by the download endpoint and cleanup.
 
@@ -133,10 +150,10 @@ The `DataHelpers` class owns the JSON payload stored on cart items and order lin
 ### 1. Admin configuration — `src/Admin/ProductSettings.php`
 
 - Registers an **OpenForms** tab inside the **Product data** metabox on the product edit screen and a **per-variation panel** inside the variable product editor.
-- Renders an "Enable forms" checkbox plus a repeatable field table (name / type / required / remove). A hidden template `<tr>` with an `INDEX` placeholder is used by `assets/js/admin.js` to add rows.
+- Renders an "Enable forms" checkbox plus a repeatable field table (name / type / default / required / remove). A hidden template `<tr>` with an `INDEX` placeholder is used by `assets/js/admin.js` to add rows; picking the Dropdown type reveals an options textarea under the name.
 - Saves config via `woocommerce_process_product_meta` and `woocommerce_save_product_variation` into post meta:
   - `_openforms_enabled` → `'yes'` / `'no'`
-  - `_openforms_fields` → array of `{ key, name, type, required }`
+  - `_openforms_fields` → array of `{ key, name, type, required, default, options }` (`options` only for dropdowns)
 - Field keys are generated from a sanitized title plus a running index (`sanitize_title( $name ) . '-' . $i`).
 
 ### 2. Frontend rendering — `src/Frontend/ProductForm.php`
@@ -173,6 +190,17 @@ Files are only served through the `?openforms_download=<token>` endpoint (`templ
 
 Quote attachments are additionally limited to a fixed allow-list of types — images, PDF, Office documents and zip; see `QuoteHandler::attachment_mimes()`.
 
+### Quote forms — `src/Blocks/GetQuote.php` + `src/Services/FormRegistry.php`
+
+The **Get a Quote** block is built from inner blocks: core headings/paragraphs, `openforms/quote-field` blocks, a `openforms/quote-success` block and a core button. Fields and the success message may be nested inside `core/group`, `core/columns`/`core/column` or `core/stack` blocks as long as the container is inside the form.
+
+- **Form identity** — the editor generates a random `formId` on insert and keeps a user editable `formName`. Both live in the block attributes; `provides_context` passes the ID down to nested field and success blocks, which is also how they enforce being inside a form (`uses_context`).
+- **Field types** — fields use the shared generic type registry above, so a field is just a name, a type (text, number, colour, date, file, dropdown, …), an optional placeholder, default value, required flag, full-width flag and an "show in admin preview" flag. Dropdowns store their own option list.
+- **Registry** — `FormRegistry` mirrors the forms found in saved post content into the `openforms_forms` option (name, field definitions, source post IDs). The render callback also refreshes it, so a rendered form can always be validated even before the post is re-saved. Removing the block (or deleting/trashing the post) removes the form from the registry; stored quotes keep their snapshot.
+- **Submissions** — `QuoteHandler` looks the posted `form` ID up in the registry and validates/sanitizes the posted values against that definition. The form name prefixes the quote title (`Form name – First preview value`) and each quote stores an ordered field snapshot (`_openforms_quote_fields`), so the admin list and meta box render any number of fields. Per-field file uploads are grouped by field key.
+- **Success message** — `openforms/quote-success` is a dynamic block that is always visible in the editor (style and position are block supports) but only renders on the frontend when the redirect carries a matching `openforms_quote_form` and `openforms_quote=success`. Forms without one fall back to the notice above the form.
+- **Admin** — the quotes list adds a Form column, an adaptive Preview column (fields flagged for preview) and a form filter dropdown built from the registry. Existing quotes created before forms were identified still display their old fixed data.
+
 ### 7. Submission rate limit — `src/Services/QuoteHandler.php`
 
 The quote form posts to `admin-post.php` with no authentication, so every submission is rate limited: one quote per 10 minutes per IP. The limit exists for two reasons — an attachment fills disk space, and each stored quote triggers a notification email. Text-only submissions are covered too; previously only uploads were, which left an unlimited path to the inbox.
@@ -187,9 +215,9 @@ The quote form posts to `admin-post.php` with no authentication, so every submis
 Once a quote is stored, the site owner is emailed through WordPress' own mailer (`wp_mail()`), so any SMTP plugin or transactional mailer already in place picks the messages up without extra configuration.
 
 - **To** — the site admin email by default. Override it, or add more people with the `openforms_quote_notification_recipient` filter; returning an empty value turns notifications off.
-- **Subject** — `[Site name] New quote request from <name>`.
+- **Subject** — `[Site name] New quote request: <form name>`.
 - **Body** — an HTML table of the submitted fields plus a link to the quote's admin screen. Override it with the `openforms_quote_notification_body` filter.
-- **Reply-To** — the submitter's address, so replying to the notification goes back to the customer.
+- **Reply-To** — the value of the first email field, so replying to the notification goes back to the customer.
 - **Attachment** — when a file was uploaded it is attached to the email itself, not linked. The stored file sits in the private folder and is only reachable by a signed-in admin, so a link would be dead for anyone reading their mail on a phone. Files over 10MB (`openforms_quote_notification_max_attachment_size` to change) are left out — mail servers routinely refuse messages past a few tens of megabytes — and the email says so instead, so you know the file exists and to fetch it from the admin.
 - A delivery failure is logged through `wc_get_logger()` only; the quote stays saved and the visitor still sees the normal success notice.
 
@@ -208,7 +236,10 @@ Uploads are deleted as soon as their only reference goes away, so abandoned file
 | What | Where |
 | --- | --- |
 | Enabled flag | post meta `_openforms_enabled` (`yes`/`no`) |
-| Field definitions | post meta `_openforms_fields` (serialized array) |
+| Product field definitions | post meta `_openforms_fields` (serialized array) |
+| Quote form definitions | option `openforms_forms` (name, fields, source post IDs) |
+| Quote submissions | post meta `_openforms_quote_form`, `_openforms_quote_form_name`, `_openforms_quote_fields`, `_openforms_quote_source` |
+| Quote attachments | post meta `_openforms_quote_file`, grouped by field key |
 | Cart item data | `openforms_data` JSON key on the cart item |
 | Order line item data | `openforms_data` JSON meta on the order line item |
 | Uploaded files | `wp-content/uploads/openforms/` (private, denied over the web, served via authorized download) |
