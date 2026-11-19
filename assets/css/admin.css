@@ -19,9 +19,19 @@
 	width: 100%;
 }
 
+/* Options for a dropdown field, shown under its name by admin.js. */
+.openforms-config .openforms-field-options {
+	width: 100%;
+	margin-top: 6px;
+}
+
 .openforms-config .openforms-required-col {
 	width: 80px;
 	text-align: center;
+}
+
+.openforms-config .openforms-default-col {
+	width: 20%;
 }
 
 .openforms-config .openforms-actions-col {

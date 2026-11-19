@@ -43,6 +43,21 @@
 		return index;
 	}
 
+	document.addEventListener('change', function (e) {
+		var select = e.target.closest('.openforms-field-type');
+
+		if (!select) {
+			return;
+		}
+
+		var row = select.closest('tr');
+		var options = row ? row.querySelector('.openforms-field-options') : null;
+
+		if (options) {
+			options.hidden = 'select' !== select.value;
+		}
+	});
+
 	document.addEventListener('click', function (e) {
 		var addBtn = e.target.closest('.openforms-add-field');
 

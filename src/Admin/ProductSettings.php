@@ -117,13 +117,14 @@ class ProductSettings {
 		echo '<thead><tr>';
 		echo '<th>' . esc_html__( 'Name', 'open-forms' ) . '</th>';
 		echo '<th>' . esc_html__( 'Type', 'open-forms' ) . '</th>';
+		echo '<th class="openforms-default-col">' . esc_html__( 'Default', 'open-forms' ) . '</th>';
 		echo '<th class="openforms-required-col">' . esc_html__( 'Required', 'open-forms' ) . '</th>';
 		echo '<th class="openforms-actions-col"></th>';
 		echo '</tr></thead>';
 		echo '<tbody class="openforms-fields-body">';
 
 		if ( empty( $fields ) ) {
-			echo '<tr class="openforms-empty-row"><td colspan="4">' . esc_html__( 'No fields added yet.', 'open-forms' ) . '</td></tr>';
+			echo '<tr class="openforms-empty-row"><td colspan="5">' . esc_html__( 'No fields added yet.', 'open-forms' ) . '</td></tr>';
 		}
 
 		$row = 0;
@@ -136,7 +137,7 @@ class ProductSettings {
 		// Hidden template rows used by the admin JS. Kept inside the tbody so
 		// the <tr> markup stays valid.
 		$this->render_field_row( $prefix, 'INDEX', array(), true );
-		echo '<tr class="openforms-empty-row openforms-empty-template" hidden><td colspan="4">' . esc_html__( 'No fields added yet.', 'open-forms' ) . '</td></tr>';
+		echo '<tr class="openforms-empty-row openforms-empty-template" hidden><td colspan="5">' . esc_html__( 'No fields added yet.', 'open-forms' ) . '</td></tr>';
 
 		echo '</tbody></table>';
 
@@ -157,18 +158,24 @@ class ProductSettings {
 		$name     = isset( $field['name'] ) ? $field['name'] : '';
 		$type     = isset( $field['type'] ) ? $field['type'] : 'text';
 		$required = ! empty( $field['required'] );
+		$options  = isset( $field['options'] ) ? (array) $field['options'] : array();
+		$default  = isset( $field['default'] ) ? $field['default'] : '';
 
 		$row_class = $template ? 'openforms-field-row openforms-field-template' : 'openforms-field-row';
 
 		echo '<tr class="' . esc_attr( $row_class ) . '"' . ( $template ? ' hidden' : '' ) . '>';
-		echo '<td><input type="text" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][name]" value="' . esc_attr( $name ) . '" placeholder="' . esc_attr__( 'Field name', 'open-forms' ) . '" /></td>';
-		echo '<td><select name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][type]">';
+		echo '<td><input type="text" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][name]" value="' . esc_attr( $name ) . '" placeholder="' . esc_attr__( 'Field name', 'open-forms' ) . '" />';
+		// Options for a dropdown field. Hidden with JS while another type is picked.
+		echo '<textarea class="openforms-field-options" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][options]" rows="2" placeholder="' . esc_attr__( 'One option per line', 'open-forms' ) . '"' . ( 'select' === $type ? '' : ' hidden' ) . '>' . esc_textarea( implode( "\n", $options ) ) . '</textarea>';
+		echo '</td>';
+		echo '<td><select class="openforms-field-type" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][type]">';
 
 		foreach ( FieldHelpers::types() as $slug => $config ) {
 			echo '<option value="' . esc_attr( $slug ) . '"' . selected( $type, $slug, false ) . '>' . esc_html( $config['label'] ) . '</option>';
 		}
 
 		echo '</select></td>';
+		echo '<td class="openforms-default-col"><input type="text" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][default]" value="' . esc_attr( $default ) . '" placeholder="' . esc_attr__( 'Default value', 'open-forms' ) . '" /></td>';
 		echo '<td class="openforms-required-col"><input type="checkbox" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][required]" value="1"' . checked( $required, true, false ) . ' /></td>';
 		echo '<td class="openforms-actions-col"><button type="button" class="button openforms-remove-field">' . esc_html__( 'Remove', 'open-forms' ) . '</button></td>';
 		echo '</tr>';
@@ -243,12 +250,21 @@ class ProductSettings {
 					continue;
 				}
 
-				$fields[] = array(
+				$options = 'select' === $type ? FieldHelpers::options( isset( $field['options'] ) ? $field['options'] : array() ) : array();
+
+				$clean = array(
 					'key'      => sanitize_title( $name ) . '-' . ( (int) $i + 1 ),
 					'name'     => $name,
 					'type'     => $type,
 					'required' => ! empty( $field['required'] ) ? 'yes' : '',
+					'default'  => FieldHelpers::sanitize_default( $type, isset( $field['default'] ) ? $field['default'] : '', $options ),
 				);
+
+				if ( 'select' === $type ) {
+					$clean['options'] = $options;
+				}
+
+				$fields[] = $clean;
 			}
 		}
 

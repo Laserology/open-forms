@@ -41,14 +41,45 @@ class FieldHelpers {
 		return apply_filters(
 			'openforms_field_types',
 			array(
-				'text'     => array( 'label' => __( 'Text', 'open-forms' ), 'input' => 'text' ),
-				'textarea' => array( 'label' => __( 'Textarea', 'open-forms' ), 'input' => 'textarea' ),
-				'url'      => array( 'label' => __( 'URL', 'open-forms' ), 'input' => 'url' ),
+				'text'     => array( 'label' => __( 'One-line text', 'open-forms' ), 'input' => 'text' ),
+				'textarea' => array( 'label' => __( 'Multi-line text', 'open-forms' ), 'input' => 'textarea' ),
 				'email'    => array( 'label' => __( 'Email', 'open-forms' ), 'input' => 'email' ),
+				'url'      => array( 'label' => __( 'URL', 'open-forms' ), 'input' => 'url' ),
+				'tel'      => array( 'label' => __( 'Phone number', 'open-forms' ), 'input' => 'tel' ),
 				'number'   => array( 'label' => __( 'Number', 'open-forms' ), 'input' => 'number' ),
-				'file'     => array( 'label' => __( 'File Upload', 'open-forms' ), 'input' => 'file' ),
+				'password' => array( 'label' => __( 'Password', 'open-forms' ), 'input' => 'password' ),
+				'color'    => array( 'label' => __( 'Colour', 'open-forms' ), 'input' => 'color' ),
+				'date'     => array( 'label' => __( 'Date', 'open-forms' ), 'input' => 'date' ),
+				'time'     => array( 'label' => __( 'Time', 'open-forms' ), 'input' => 'time' ),
+				'file'     => array( 'label' => __( 'File upload', 'open-forms' ), 'input' => 'file' ),
+				'select'   => array( 'label' => __( 'Dropdown', 'open-forms' ), 'input' => 'select', 'options' => true ),
 			)
 		);
+	}
+
+	/**
+	 * Clean a newline separated option list into an array of labels.
+	 *
+	 * @param mixed $value Newline separated string or array of labels.
+	 * @return array
+	 */
+	public static function options( mixed $value ): array {
+		$lines   = is_array( $value ) ? $value : preg_split( '/[\r\n]+/', (string) $value );
+		$options = array();
+
+		foreach ( (array) $lines as $line ) {
+			if ( ! is_scalar( $line ) ) {
+				continue;
+			}
+
+			$label = trim( sanitize_text_field( (string) $line ) );
+
+			if ( '' !== $label && ! in_array( $label, $options, true ) ) {
+				$options[] = $label;
+			}
+		}
+
+		return $options;
 	}
 
 	/**
@@ -79,11 +110,15 @@ class FieldHelpers {
 				continue;
 			}
 
+			$options = 'select' === $type ? self::options( isset( $field['options'] ) ? $field['options'] : array() ) : array();
+
 			$clean[ $key ] = array(
 				'key'      => $key,
 				'name'     => $name,
 				'type'     => $type,
 				'required' => ! empty( $field['required'] ),
+				'options'  => $options,
+				'default'  => self::sanitize_default( $type, isset( $field['default'] ) ? $field['default'] : '', $options ),
 			);
 		}
 
@@ -98,21 +133,33 @@ class FieldHelpers {
 	 * @return string
 	 */
 	public static function render( string $input_key, array $field ): string {
-		$type      = isset( $field['type'] ) ? $field['type'] : 'text';
-		$config    = isset( self::types()[ $type ] ) ? self::types()[ $type ] : self::types()['text'];
-		$input     = $config['input'];
-		$required  = ! empty( $field['required'] );
+		$type          = isset( $field['type'] ) ? $field['type'] : 'text';
+		$config        = isset( self::types()[ $type ] ) ? self::types()[ $type ] : self::types()['text'];
+		$input         = $config['input'];
+		$required      = ! empty( $field['required'] );
 		$required_mark = $required ? ' <span class="required">*</span>' : '';
+		$default       = isset( $field['default'] ) ? (string) $field['default'] : '';
 
 		$output  = '<p class="openforms-field openforms-field-' . esc_attr( $type ) . '">';
 		$output .= '<label class="openforms-label" for="openforms-' . esc_attr( $input_key ) . '">' . esc_html( $field['name'] ) . $required_mark . '</label>';
 
 		if ( 'textarea' === $input ) {
-			$output .= '<textarea name="openforms[' . esc_attr( $input_key ) . ']" id="openforms-' . esc_attr( $input_key ) . '" class="openforms-input" rows="3"></textarea>';
+			$output .= '<textarea name="openforms[' . esc_attr( $input_key ) . ']" id="openforms-' . esc_attr( $input_key ) . '" class="openforms-input" rows="3">' . esc_textarea( $default ) . '</textarea>';
 		} elseif ( 'file' === $type ) {
 			$output .= '<input type="file" name="openforms[' . esc_attr( $input_key ) . '][]" id="openforms-' . esc_attr( $input_key ) . '" class="openforms-input" multiple />';
+		} elseif ( 'select' === $input ) {
+			$options = isset( $field['options'] ) ? (array) $field['options'] : array();
+
+			$output .= '<select name="openforms[' . esc_attr( $input_key ) . ']" id="openforms-' . esc_attr( $input_key ) . '" class="openforms-input">';
+			$output .= '<option value=""' . selected( '', $default, false ) . '>' . esc_html__( 'Select an option…', 'open-forms' ) . '</option>';
+
+			foreach ( $options as $option ) {
+				$output .= '<option value="' . esc_attr( $option ) . '"' . selected( $option, $default, false ) . '>' . esc_html( $option ) . '</option>';
+			}
+
+			$output .= '</select>';
 		} else {
-			$output .= '<input type="' . esc_attr( $input ) . '" name="openforms[' . esc_attr( $input_key ) . ']" id="openforms-' . esc_attr( $input_key ) . '" class="openforms-input" />';
+			$output .= '<input type="' . esc_attr( $input ) . '" name="openforms[' . esc_attr( $input_key ) . ']" id="openforms-' . esc_attr( $input_key ) . '" class="openforms-input" value="' . esc_attr( $default ) . '" />';
 		}
 
 		$output .= '</p>';
@@ -168,6 +215,16 @@ class FieldHelpers {
 				/* translators: %s: field name. Shown when the value is not numeric. */
 				return array( sprintf( __( '%s must be a number.', 'open-forms' ), $name ) );
 			}
+
+			if ( 'color' === $type && ! sanitize_hex_color( $value ) ) {
+				/* translators: %s: field name. Shown when the value is not a valid colour. */
+				return array( sprintf( __( '%s is not a valid colour.', 'open-forms' ), $name ) );
+			}
+
+			if ( 'select' === $type && ! empty( $field['options'] ) && ! in_array( $value, (array) $field['options'], true ) ) {
+				/* translators: %s: field name. Shown when a value is not one of the configured options. */
+				return array( sprintf( __( '%s must be one of the available options.', 'open-forms' ), $name ) );
+			}
 		}
 
 		return array();
@@ -192,6 +249,42 @@ class FieldHelpers {
 				return (string) sanitize_email( $value );
 			case 'number':
 				return is_numeric( $value ) ? (string) $value : '';
+			case 'color':
+				return (string) sanitize_hex_color( (string) $value );
+			default:
+				return (string) sanitize_text_field( $value );
+		}
+	}
+
+	/**
+	 * Sanitize a field's default value for its type.
+	 *
+	 * Defaults are authored by an admin, so they are cleaned once when the form
+	 * is saved and rendered as-is afterwards.
+	 *
+	 * @param string $type    Field type.
+	 * @param mixed  $value   Submitted default.
+	 * @param array  $options Allowed labels for a dropdown field.
+	 * @return string
+	 */
+	public static function sanitize_default( string $type, mixed $value, array $options = array() ): string {
+		$value = is_scalar( $value ) ? (string) $value : '';
+
+		switch ( $type ) {
+			case 'textarea':
+				return (string) sanitize_textarea_field( $value );
+			case 'email':
+				return (string) sanitize_email( $value );
+			case 'url':
+				return (string) esc_url_raw( $value );
+			case 'number':
+				return is_numeric( $value ) ? (string) $value : '';
+			case 'color':
+				return (string) sanitize_hex_color( $value );
+			case 'select':
+				return in_array( $value, $options, true ) ? $value : '';
+			case 'file':
+				return '';
 			default:
 				return (string) sanitize_text_field( $value );
 		}
