@@ -2,6 +2,9 @@
 /**
  * QuoteHandler: quote submissions. Stores get a quote submissions as a private
  * post type and provides the admin viewer (list columns and a detail meta box).
+ *
+ * Every submission belongs to a quote form from FormRegistry, so the fields
+ * shown in the admin are whatever that form defined rather than a fixed set.
  */
 
 namespace OpenForms\Services;
@@ -34,21 +37,9 @@ class QuoteHandler {
 		add_action( 'admin_post_nopriv_openforms_quote', array( $this, 'handle_submit' ) );
 		add_filter( 'manage_openforms_quote_posts_columns', array( $this, 'columns' ) );
 		add_action( 'manage_openforms_quote_posts_custom_column', array( $this, 'column_content' ), 10, 2 );
+		add_action( 'restrict_manage_posts', array( $this, 'form_filter' ) );
+		add_action( 'pre_get_posts', array( $this, 'filter_query' ) );
 		add_action( 'add_meta_boxes', array( $this, 'add_meta_box' ) );
-	}
-
-	/**
-	 * The budget options shared by the block select and the validation here.
-	 *
-	 * @return array
-	 */
-	public static function budget_options(): array {
-		return array(
-			__( 'Less than $1,000', 'open-forms' ),
-			__( '$1,000 - $5,000', 'open-forms' ),
-			__( '$5,000 - $10,000', 'open-forms' ),
-			__( '$10,000+', 'open-forms' ),
-		);
 	}
 
 	/**
@@ -180,10 +171,28 @@ class QuoteHandler {
 	 * Validate and store a submitted quote, then redirect back with a notice.
 	 */
 	public function handle_submit(): void {
-		$referer = wp_get_referer() ? wp_get_referer() : home_url( '/' );
+		$referer      = wp_get_referer() ? wp_get_referer() : home_url( '/' );
+		$stored_files = array();
+		$form_id      = '';
+		$upload_total = 0;
 
-		$fail = function ( string $type = 'error' ) use ( $referer ) {
-			wp_safe_redirect( add_query_arg( 'openforms_quote', $type, $referer ) );
+		$fail = function ( string $type = 'error' ) use ( $referer, &$stored_files, &$form_id ) {
+			// Do not leave uploads behind when the quote was not created.
+			foreach ( $stored_files as $group ) {
+				foreach ( (array) $group as $file ) {
+					if ( ! empty( $file['file_path'] ) && is_file( $file['file_path'] ) ) {
+						unlink( $file['file_path'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+					}
+				}
+			}
+
+			$args = array( 'openforms_quote' => $type );
+
+			if ( '' !== $form_id ) {
+				$args['openforms_quote_form'] = $form_id;
+			}
+
+			wp_safe_redirect( add_query_arg( $args, $referer ) );
 			exit;
 		};
 
@@ -193,24 +202,28 @@ class QuoteHandler {
 
 		$data = isset( $_POST['openforms_quote'] ) && is_array( $_POST['openforms_quote'] ) ? wp_unslash( $_POST['openforms_quote'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each field is sanitized individually below.
 
-		$name    = isset( $data['name'] ) ? sanitize_text_field( (string) $data['name'] ) : '';
-		$email   = isset( $data['email'] ) ? sanitize_email( (string) $data['email'] ) : '';
-		$phone   = isset( $data['phone'] ) ? sanitize_text_field( (string) $data['phone'] ) : '';
-		$budget  = isset( $data['budget'] ) ? sanitize_text_field( (string) $data['budget'] ) : '';
-		$message = isset( $data['message'] ) ? sanitize_textarea_field( (string) $data['message'] ) : '';
 		$source  = isset( $data['source'] ) ? absint( $data['source'] ) : 0;
+		$form_id = isset( $data['form'] ) && is_string( $data['form'] ) ? sanitize_key( $data['form'] ) : '';
 
-		if ( '' === $name ) {
+		// A page cached before forms were identified posts no form ID; its source
+		// post still points at the form that rendered it.
+		if ( '' === $form_id && $source > 0 ) {
+			$form_id = 'form-' . $source;
+		}
+
+		// Rebuild a missing definition from the post that rendered the form.
+		if ( '' !== $form_id && ! FormRegistry::exists( $form_id ) && $source > 0 ) {
+			FormRegistry::refresh_post( $source );
+		}
+
+		if ( '' === $form_id || ! FormRegistry::exists( $form_id ) ) {
 			$fail();
 		}
 
-		if ( '' !== $email && ! is_email( $email ) ) {
-			$fail();
-		}
-
-		if ( ! in_array( $budget, self::budget_options(), true ) ) {
-			$budget = '';
-		}
+		$form      = FormRegistry::get( $form_id );
+		$form_name = '' !== $form['name'] ? $form['name'] : __( 'Quote form', 'open-forms' );
+		$entries   = array();
+		$reply_to  = '';
 
 		// The form is open to anyone, so every submission is rate limited: an
 		// attachment fills disk space, and each stored quote sends the store
@@ -220,53 +233,118 @@ class QuoteHandler {
 			$fail( 'throttle' );
 		}
 
-		// The form is multipart, so attachments can arrive alongside the text
-		// fields. They are stored before the quote is created; a rejected upload
-		// aborts the submission.
-		$files = array();
+		foreach ( $form['fields'] as $field ) {
+			$key   = $field['key'];
+			$type  = $field['type'];
+			$label = $field['label'];
 
-		if ( FieldHelpers::has_files( 'openforms_quote', 'file' ) ) {
-			$files = FieldHelpers::upload_files( 'openforms_quote', 'file', self::attachment_mimes() );
+			if ( 'file' === $type ) {
+				$files = array();
+				$group = 'openforms_quote_files';
 
-			if ( ! $files ) {
-				$fail( 'file' );
+				// A cached page from before generic fields posts its single file
+				// field through the old group name.
+				if ( 'file' === $key && ! FieldHelpers::has_files( $group, $key ) ) {
+					$group = 'openforms_quote';
+				}
+
+				if ( FieldHelpers::has_files( $group, $key ) ) {
+					$upload_total += FieldHelpers::upload_size( $group, $key );
+					$files         = FieldHelpers::upload_files( $group, $key, self::attachment_mimes() );
+
+					if ( ! $files ) {
+						$fail( 'file' );
+					}
+
+					$stored_files[ $key ] = $files;
+				} elseif ( ! empty( $field['required'] ) ) {
+					$fail();
+				}
+
+				$entries[] = array(
+					'key'     => $key,
+					'label'   => $label,
+					'type'    => 'file',
+					'value'   => '',
+					'preview' => ! empty( $field['preview'] ),
+				);
+
+				continue;
 			}
+
+			$value = isset( $data[ $key ] ) && is_string( $data[ $key ] ) ? trim( $data[ $key ] ) : '';
+
+			if ( '' !== $value ) {
+				if ( 'email' === $type && ! is_email( $value ) ) {
+					$fail();
+				}
+
+				if ( 'url' === $type && ! filter_var( $value, FILTER_VALIDATE_URL ) ) {
+					$fail();
+				}
+
+				if ( 'number' === $type && ! is_numeric( $value ) ) {
+					$fail();
+				}
+
+				if ( 'color' === $type && ! sanitize_hex_color( $value ) ) {
+					$fail();
+				}
+
+				if ( 'select' === $type && ! in_array( $value, (array) $field['options'], true ) ) {
+					$value = '';
+				}
+
+				if ( 'email' === $type && '' === $reply_to ) {
+					$reply_to = $value;
+				}
+			}
+
+			if ( '' === $value && ! empty( $field['required'] ) ) {
+				$fail();
+			}
+
+			$entries[] = array(
+				'key'     => $key,
+				'label'   => $label,
+				'type'    => $type,
+				'value'   => FieldHelpers::sanitize( $type, $value ),
+				'preview' => ! empty( $field['preview'] ),
+			);
+		}
+
+		// The form name prefixes the title so the quotes list is readable at a
+		// glance without opening a submission.
+		if ( $upload_total > FieldHelpers::max_request_upload_size() ) {
+			$fail( 'file' );
+		}
+
+		$primary = $this->primary_value( $entries );
+
+		if ( '' !== $primary ) {
+			$primary = wp_html_excerpt( $primary, 60, '…' );
 		}
 
 		$post_id = wp_insert_post(
 			array(
 				'post_type'   => 'openforms_quote',
 				'post_status' => 'publish',
-				'post_title'  => $name,
+				'post_title'  => '' !== $primary ? $form_name . ' – ' . $primary : $form_name,
 				// Unowned, so submitters cannot edit their own quote.
 				'post_author' => 0,
 			)
 		);
 
 		if ( ! $post_id || is_wp_error( $post_id ) ) {
-			// Do not leave the stored uploads behind when the quote was not created.
-			foreach ( $files as $stored ) {
-				if ( ! empty( $stored['file_path'] ) ) {
-					unlink( $stored['file_path'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-				}
-			}
-
 			$fail();
 		}
 
-		update_post_meta(
-			$post_id,
-			'_openforms_quote_data',
-			array(
-				'email'   => $email,
-				'phone'   => $phone,
-				'budget'  => $budget,
-				'message' => $message,
-			)
-		);
+		update_post_meta( $post_id, '_openforms_quote_form', $form_id );
+		update_post_meta( $post_id, '_openforms_quote_form_name', $form_name );
+		update_post_meta( $post_id, '_openforms_quote_fields', $entries );
 
-		if ( $files ) {
-			update_post_meta( $post_id, self::FILE_META, $files );
+		if ( $stored_files ) {
+			update_post_meta( $post_id, self::FILE_META, $stored_files );
 		}
 
 		if ( $source ) {
@@ -277,9 +355,17 @@ class QuoteHandler {
 		// that fails validation or upload does not lock the visitor out.
 		$this->throttle();
 
-		$this->notify( $post_id, $files );
+		$this->notify( $post_id, $reply_to );
 
-		wp_safe_redirect( add_query_arg( 'openforms_quote', 'success', $referer ) );
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'openforms_quote'      => 'success',
+					'openforms_quote_form' => $form_id,
+				),
+				$referer
+			)
+		);
 		exit;
 	}
 
@@ -288,11 +374,13 @@ class QuoteHandler {
 	 * logged: the quote is already saved, and the visitor must not be shown an
 	 * error that the admin mail caused.
 	 *
-	 * @param int   $post_id Quote post ID.
-	 * @param array $files   Stored attachment details.
+	 * @param int    $post_id  Quote post ID.
+	 * @param string $reply_to Address supplied by an email field, if any.
 	 */
-	private function notify( int $post_id, array $files ): void {
-		$data = $this->data( $post_id );
+	private function notify( int $post_id, string $reply_to ): void {
+		$entries   = $this->entries( $post_id );
+		$files     = $this->file_groups( $post_id );
+		$form_name = (string) get_post_meta( $post_id, '_openforms_quote_form_name', true );
 
 		/**
 		 * Filters the recipient of the new quote notification. Returning an empty
@@ -307,17 +395,12 @@ class QuoteHandler {
 			return;
 		}
 
-		$names      = array();
 		$total_size = 0;
 
-		foreach ( $files as $file ) {
-			if ( empty( $file['file_name'] ) ) {
-				continue;
+		foreach ( $files as $group ) {
+			foreach ( (array) $group as $file ) {
+				$total_size += isset( $file['file_size'] ) ? (int) $file['file_size'] : 0;
 			}
-
-			$size        = (int) $file['file_size'];
-			$total_size += $size;
-			$names[]     = $file['file_name'] . ' (' . size_format( $size ) . ')';
 		}
 
 		// A set past the mail budget is named in the email but not attached, so
@@ -330,32 +413,48 @@ class QuoteHandler {
 			)
 			: '';
 
+		$rows = array();
+
+		if ( '' !== $form_name ) {
+			$rows[ __( 'Form', 'open-forms' ) ] = $form_name;
+		}
+
+		foreach ( $entries as $entry ) {
+			if ( 'file' === $entry['type'] ) {
+				$names = array();
+
+				foreach ( (array) ( $files[ $entry['key'] ] ?? array() ) as $file ) {
+					if ( ! empty( $file['file_name'] ) ) {
+						$names[] = $file['file_name'] . ' (' . size_format( (int) $file['file_size'] ) . ')';
+					}
+				}
+
+				$rows[ $entry['label'] ] = implode( "\n", $names );
+				continue;
+			}
+
+			$rows[ $entry['label'] ] = (string) $entry['value'];
+		}
+
 		$rows = array_filter(
-			array(
-				__( 'Name', 'open-forms' )        => get_the_title( $post_id ),
-				__( 'Email', 'open-forms' )       => $data['email'],
-				__( 'Phone', 'open-forms' )       => $data['phone'],
-				__( 'Budget', 'open-forms' )      => $data['budget'],
-				__( 'Message', 'open-forms' )     => $data['message'],
-				__( 'Attachments', 'open-forms' ) => implode( "\n", $names ),
-			),
+			$rows,
 			static function ( $value ) {
-				return '' !== trim( $value );
+				return '' !== trim( (string) $value );
 			}
 		);
 
 		$subject = sprintf(
-			/* translators: 1: site name, 2: name of the person asking for a quote. */
-			__( '[%1$s] New quote request from %2$s', 'open-forms' ),
+			/* translators: 1: site name, 2: quote form name. */
+			__( '[%1$s] New quote request: %2$s', 'open-forms' ),
 			get_bloginfo( 'name' ),
-			get_the_title( $post_id )
+			'' !== $form_name ? $form_name : __( 'Quote form', 'open-forms' )
 		);
 
 		$headers = array( 'Content-Type: text/html; charset=UTF-8' );
 
 		// Replying goes straight back to whoever asked for the quote.
-		if ( '' !== $data['email'] ) {
-			$headers[] = 'Reply-To: ' . $data['email'];
+		if ( '' !== $reply_to && is_email( $reply_to ) ) {
+			$headers[] = 'Reply-To: ' . $reply_to;
 		}
 
 		/* translators: %s: site name. */
@@ -389,9 +488,11 @@ class QuoteHandler {
 		$attachments = array();
 
 		if ( '' === $too_large ) {
-			foreach ( $files as $file ) {
-				if ( ! empty( $file['file_path'] ) && is_readable( $file['file_path'] ) ) {
-					$attachments[] = $file['file_path'];
+			foreach ( $files as $group ) {
+				foreach ( (array) $group as $file ) {
+					if ( ! empty( $file['file_path'] ) && is_readable( $file['file_path'] ) ) {
+						$attachments[] = $file['file_path'];
+					}
 				}
 			}
 		}
@@ -403,6 +504,39 @@ class QuoteHandler {
 				array( 'source' => 'openforms' )
 			);
 		}
+	}
+
+	/**
+	 * The value used after the form name in the quote title: the first preview
+	 * field with a value, falling back to the first text-like value.
+	 *
+	 * @param array $entries Stored entries.
+	 * @return string
+	 */
+	private function primary_value( array $entries ): string {
+		$fallback = '';
+
+		foreach ( $entries as $entry ) {
+			if ( 'file' === $entry['type'] ) {
+				continue;
+			}
+
+			$value = trim( (string) $entry['value'] );
+
+			if ( '' === $value ) {
+				continue;
+			}
+
+			if ( ! empty( $entry['preview'] ) ) {
+				return $value;
+			}
+
+			if ( '' === $fallback && in_array( $entry['type'], array( 'text', 'email', 'tel', 'number' ), true ) ) {
+				$fallback = $value;
+			}
+		}
+
+		return $fallback;
 	}
 
 	/**
@@ -461,9 +595,9 @@ class QuoteHandler {
 			$new[ $key ] = $label;
 
 			if ( 'title' === $key ) {
-				$new['openforms_email']  = __( 'Email', 'open-forms' );
-				$new['openforms_budget'] = __( 'Budget', 'open-forms' );
-				$new['openforms_source'] = __( 'Source', 'open-forms' );
+				$new['openforms_form']    = __( 'Form', 'open-forms' );
+				$new['openforms_preview'] = __( 'Preview', 'open-forms' );
+				$new['openforms_source']  = __( 'Source', 'open-forms' );
 			}
 		}
 
@@ -477,14 +611,17 @@ class QuoteHandler {
 	 * @param int    $post_id Quote post ID.
 	 */
 	public function column_content( string $column, int $post_id ): void {
-		$data = $this->data( $post_id );
+		if ( 'openforms_form' === $column ) {
+			$name = (string) get_post_meta( $post_id, '_openforms_quote_form_name', true );
 
-		if ( 'openforms_email' === $column ) {
-			echo esc_html( $data['email'] );
+			echo '' !== $name ? esc_html( $name ) : '&mdash;';
+
+			return;
 		}
 
-		if ( 'openforms_budget' === $column ) {
-			echo esc_html( $data['budget'] );
+		if ( 'openforms_preview' === $column ) {
+			echo $this->preview_html( $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- preview_html() returns escaped markup.
+			return;
 		}
 
 		if ( 'openforms_source' === $column ) {
@@ -495,6 +632,92 @@ class QuoteHandler {
 			} else {
 				echo '&mdash;';
 			}
+		}
+	}
+
+	/**
+	 * The quick preview shown in the quotes list: every field the form marked
+	 * for the preview, whatever its name or type.
+	 *
+	 * @param int $post_id Quote post ID.
+	 * @return string
+	 */
+	private function preview_html( int $post_id ): string {
+		$rows = array();
+
+		foreach ( $this->entries( $post_id ) as $entry ) {
+			if ( empty( $entry['preview'] ) || 'file' === $entry['type'] ) {
+				continue;
+			}
+
+			$value = trim( (string) $entry['value'] );
+
+			if ( '' === $value ) {
+				continue;
+			}
+
+			$rows[] = '<strong>' . esc_html( $entry['label'] ) . '</strong> ' . esc_html( $value );
+		}
+
+		return $rows ? implode( '<br />', $rows ) : '&mdash;';
+	}
+
+	/**
+	 * The form dropdown above the quotes list, built from the registry so a
+	 * form disappears from the admin once its block is deleted.
+	 *
+	 * @param string $post_type Current post type.
+	 */
+	public function form_filter( string $post_type ): void {
+		if ( 'openforms_quote' !== $post_type ) {
+			return;
+		}
+
+		$forms = FormRegistry::all();
+
+		if ( empty( $forms ) ) {
+			return;
+		}
+
+		$selected = isset( $_GET['openforms_quote_form_filter'] ) ? sanitize_key( wp_unslash( $_GET['openforms_quote_form_filter'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only list filter.
+
+		echo '<select name="openforms_quote_form_filter" aria-label="' . esc_attr__( 'Filter by form', 'open-forms' ) . '">';
+		echo '<option value="">' . esc_html__( 'All forms', 'open-forms' ) . '</option>';
+
+		foreach ( $forms as $form ) {
+			printf(
+				'<option value="%s"%s>%s</option>',
+				esc_attr( $form['id'] ),
+				selected( $selected, $form['id'], false ),
+				esc_html( $form['name'] )
+			);
+		}
+
+		echo '</select>';
+	}
+
+	/**
+	 * Limit the quotes list to the selected form.
+	 *
+	 * @param \WP_Query $query Current query.
+	 */
+	public function filter_query( \WP_Query $query ): void {
+		if ( ! is_admin() || ! $query->is_main_query() || ! in_array( 'openforms_quote', (array) $query->get( 'post_type' ), true ) ) {
+			return;
+		}
+
+		$form_id = isset( $_GET['openforms_quote_form_filter'] ) ? sanitize_key( wp_unslash( $_GET['openforms_quote_form_filter'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only list filter.
+
+		if ( '' !== $form_id ) {
+			$query->set(
+				'meta_query',
+				array(
+					array(
+						'key'   => '_openforms_quote_form',
+						'value' => $form_id,
+					),
+				)
+			);
 		}
 	}
 
@@ -513,42 +736,61 @@ class QuoteHandler {
 	}
 
 	/**
-	 * Render the submitted quote details on the edit screen.
+	 * Render the submitted quote details on the edit screen. The rows follow the
+	 * field snapshot stored with the submission, so any number of fields is
+	 * shown without a fixed layout.
 	 *
 	 * @param \WP_Post $post Quote post.
 	 */
 	public function render_meta_box( \WP_Post $post ): void {
-		$data   = $this->data( $post->ID );
-		$source = (int) get_post_meta( $post->ID, '_openforms_quote_source', true );
-		$files  = $this->files( $post->ID );
-
-		$rows = array(
-			'name'    => array( __( 'Name', 'open-forms' ), get_the_title( $post ) ),
-			'email'   => array( __( 'Email', 'open-forms' ), $data['email'] ),
-			'phone'   => array( __( 'Phone', 'open-forms' ), $data['phone'] ),
-			'budget'  => array( __( 'Budget', 'open-forms' ), $data['budget'] ),
-			'message' => array( __( 'Message', 'open-forms' ), $data['message'] ),
-		);
+		$form_name = (string) get_post_meta( $post->ID, '_openforms_quote_form_name', true );
+		$entries   = $this->entries( $post->ID );
+		$files     = $this->file_groups( $post->ID );
+		$source    = (int) get_post_meta( $post->ID, '_openforms_quote_source', true );
 
 		echo '<table class="widefat striped">';
 		echo '<tbody>';
 
-		foreach ( $rows as $key => $row ) {
-			list( $label, $value ) = $row;
-			$value                = 'message' === $key ? nl2br( esc_html( $value ) ) : esc_html( $value );
-			$value                = '' !== trim( $value ) ? $value : '&mdash;';
-
-			echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . $value . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $value is escaped above.
+		if ( '' !== $form_name ) {
+			echo '<tr><th scope="row">' . esc_html__( 'Form', 'open-forms' ) . '</th><td>' . esc_html( $form_name ) . '</td></tr>';
 		}
 
-		if ( $files ) {
-			echo '<tr><th scope="row">' . esc_html__( 'Attachments', 'open-forms' ) . '</th><td>';
+		if ( empty( $entries ) ) {
+			echo '<tr><th scope="row">' . esc_html__( 'Name', 'open-forms' ) . '</th><td>' . esc_html( get_the_title( $post ) ) . '</td></tr>';
+		}
 
-			foreach ( $files as $file ) {
-				echo DataHelpers::render_file( $file, true, true ) . '<br />'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_file() returns escaped markup.
+		$shown = array();
+
+		foreach ( $entries as $entry ) {
+			$shown[] = $entry['key'];
+
+			if ( 'file' === $entry['type'] ) {
+				$value = '';
+
+				foreach ( (array) ( $files[ $entry['key'] ] ?? array() ) as $file ) {
+					$value .= DataHelpers::render_file( $file, true, true ) . '<br />';
+				}
+
+				$value = '' !== $value ? $value : '&mdash;';
+			} else {
+				$value = '' !== trim( (string) $entry['value'] ) ? nl2br( esc_html( $entry['value'] ) ) : '&mdash;';
 			}
 
-			echo '</td></tr>';
+			echo '<tr><th scope="row">' . esc_html( $entry['label'] ) . '</th><td>' . $value . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $value is escaped above.
+		}
+
+		// Legacy quotes, and files uploaded through a field the form no longer
+		// defines, still get an attachments row.
+		$orphans = array_diff_key( $files, array_flip( $shown ) );
+
+		foreach ( $orphans as $group ) {
+			$value = '';
+
+			foreach ( (array) $group as $file ) {
+				$value .= DataHelpers::render_file( $file, true, true ) . '<br />';
+			}
+
+			echo '<tr><th scope="row">' . esc_html__( 'Attachments', 'open-forms' ) . '</th><td>' . $value . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_file() returns escaped markup.
 		}
 
 		if ( $source && get_post( $source ) ) {
@@ -560,32 +802,61 @@ class QuoteHandler {
 	}
 
 	/**
-	 * The stored attachment list, accepting the old single-file value.
+	 * The stored field snapshot for a quote. Quotes created before fields were
+	 * configurable fall back to the old fixed columns.
 	 *
 	 * @param int $post_id Quote post ID.
 	 * @return array
 	 */
-	private function files( int $post_id ): array {
-		$files = get_post_meta( $post_id, self::FILE_META, true );
+	private function entries( int $post_id ): array {
+		$entries = get_post_meta( $post_id, '_openforms_quote_fields', true );
 
-		if ( ! is_array( $files ) ) {
-			return array();
+		if ( is_array( $entries ) && ! empty( $entries ) ) {
+			return $entries;
 		}
 
-		if ( isset( $files['file_key'] ) ) {
-			return array( $files );
+		$data = $this->legacy_data( $post_id );
+		$rows = array(
+			array(
+				'key'     => 'name',
+				'label'   => __( 'Name', 'open-forms' ),
+				'type'    => 'text',
+				'value'   => get_the_title( $post_id ),
+				'preview' => false,
+			),
+		);
+
+		$labels = array(
+			'email'   => array( __( 'Email', 'open-forms' ), 'email', true ),
+			'phone'   => array( __( 'Phone', 'open-forms' ), 'tel', true ),
+			'budget'  => array( __( 'Budget', 'open-forms' ), 'text', true ),
+			'message' => array( __( 'Message', 'open-forms' ), 'textarea', false ),
+		);
+
+		foreach ( $labels as $key => $meta ) {
+			if ( '' === trim( (string) $data[ $key ] ) ) {
+				continue;
+			}
+
+			$rows[] = array(
+				'key'     => $key,
+				'label'   => $meta[0],
+				'type'    => $meta[1],
+				'value'   => $data[ $key ],
+				'preview' => $meta[2],
+			);
 		}
 
-		return $files;
+		return $rows;
 	}
 
 	/**
-	 * The stored quote data with every key guaranteed to exist.
+	 * The fixed data array stored by quotes submitted before the generic fields.
 	 *
 	 * @param int $post_id Quote post ID.
 	 * @return array
 	 */
-	private function data( int $post_id ): array {
+	private function legacy_data( int $post_id ): array {
 		$data = get_post_meta( $post_id, '_openforms_quote_data', true );
 
 		return wp_parse_args(
@@ -597,5 +868,38 @@ class QuoteHandler {
 				'message' => '',
 			)
 		);
+	}
+
+	/**
+	 * The stored attachments grouped by the field that received them. Also
+	 * accepts the old single-file and flat-list formats.
+	 *
+	 * @param int $post_id Quote post ID.
+	 * @return array Field key => list of file details.
+	 */
+	private function file_groups( int $post_id ): array {
+		$stored = get_post_meta( $post_id, self::FILE_META, true );
+
+		if ( ! is_array( $stored ) || empty( $stored ) ) {
+			return array();
+		}
+
+		$first = reset( $stored );
+
+		// Current format: field key => list of files.
+		if ( is_array( $first ) && isset( $first[0] ) && is_array( $first[0] ) ) {
+			return $stored;
+		}
+
+		// Legacy: a single file, or a flat list of files.
+		if ( isset( $stored['file_key'] ) ) {
+			return array( 'file' => array( $stored ) );
+		}
+
+		if ( isset( $stored[0] ) && is_array( $stored[0] ) && isset( $stored[0]['file_key'] ) ) {
+			return array( 'file' => array_values( $stored ) );
+		}
+
+		return array();
 	}
 }

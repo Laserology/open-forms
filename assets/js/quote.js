@@ -32,6 +32,19 @@
 		}
 	});
 
+	// A form may contain more than one file field, so check every picker.
+	function hasFiles(form) {
+		var inputs = form.querySelectorAll('.openforms-quote__file-input');
+
+		for (var i = 0; i < inputs.length; i++) {
+			if (inputs[i].files && inputs[i].files.length) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	// The form posts to admin-post.php, so there is no navigation to show
 	// progress. Reveal the status line and lock the button as soon as the
 	// browser accepts the submission, otherwise a big file looks like a frozen
@@ -43,12 +56,11 @@
 			return;
 		}
 
-		var file = form.querySelector('.openforms-quote__file-input');
 		var status = form.querySelector('.openforms-quote__status');
 		var button = form.querySelector('button[type="submit"]');
 
 		if (status) {
-			status.textContent = file && file.files && file.files.length ? status.dataset.uploading : status.dataset.sending;
+			status.textContent = hasFiles(form) ? status.dataset.uploading : status.dataset.sending;
 			status.hidden = false;
 		}
 

@@ -36,6 +36,27 @@
 	color: #b71c1c;
 }
 
+/* Success messages live inside the fields grid, so the grid gap replaces the
+ * notice's own margin. */
+.openforms-quote__fields .openforms-quote__notice {
+	margin: 0;
+}
+
+/* Colour inputs need their own padding and a predictable height. */
+.openforms-quote__input[type="color"] {
+	height: 3em;
+	padding: 0.2em;
+	cursor: pointer;
+}
+
+/* Editor only: a field dragged outside a form still explains itself. */
+.openforms-quote__field-warning {
+	margin: 0.75em 0 0;
+	color: var(--wp--preset--color--vivid-red, #d63638);
+	font-size: 0.85em;
+	font-style: italic;
+}
+
 /* Shown while the form is submitting, so a slow upload does not read as a
  * frozen page. The button is disabled at the same time. */
 .openforms-quote__status {
@@ -63,7 +84,7 @@
 	line-height: 1.2;
 }
 
-.openforms-quote__fields > p:not(.openforms-quote__field) {
+.openforms-quote__fields > p:not(.openforms-quote__field):not(.openforms-quote__notice) {
 	margin: 0 0 1.5em;
 	line-height: 1.6;
 }
@@ -97,11 +118,13 @@
  * wrapper class only exists in the block editor; the frontend markup comes
  * from PHP and never carries it.
  */
-.wp-block-openforms-quote-field {
+.wp-block-openforms-quote-field,
+.wp-block-openforms-quote-success {
 	margin: 0;
 }
 
-.wp-block-openforms-quote-field:hover {
+.wp-block-openforms-quote-field:hover,
+.wp-block-openforms-quote-success:hover {
 	outline: 1px dashed var(--wp--preset--color--contrast-20, #d1d1d1);
 	outline-offset: 2px;
 	border-radius: 4px;
