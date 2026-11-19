@@ -1,7 +1,7 @@
 <?php
 /**
- * DataHelpers: form payload helpers. Handles the JSON blob that travels with
- * cart items and order line items.
+ * DataHelpers: form payload and file-entry helpers. Handles the JSON blob used
+ * by the WooCommerce add-on and the display helpers used by both plugins.
  */
 
 namespace OpenForms;
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Encodes, decodes and inspects the submitted form payload.
+ * Encodes, decodes and inspects the stored form payload.
  */
 class DataHelpers {
 

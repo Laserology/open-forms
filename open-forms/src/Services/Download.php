@@ -1,13 +1,11 @@
 <?php
 /**
  * Download: authorized file delivery. Uploaded files are stored outside the
- * public uploads path and are only handed out to shop staff or to the shopper
- * whose active cart still holds the file's token.
+ * public uploads path and are only handed out after an access check.
  */
 
 namespace OpenForms\Services;
 
-use OpenForms\DataHelpers;
 use OpenForms\FieldHelpers;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -45,7 +43,7 @@ class Download {
 			wp_die( esc_html__( 'File not found.', 'open-forms' ), '', array( 'response' => 404 ) );
 		}
 
-		if ( ! $this->can_download( $token ) && ! $this->token_in_cart( $token ) ) {
+		if ( ! $this->can_download( $token ) ) {
 			wp_die( esc_html__( 'You are not allowed to download this file.', 'open-forms' ), '', array( 'response' => 403 ) );
 		}
 
@@ -66,14 +64,22 @@ class Download {
 
 	/**
 	 * Whether the current user may download a token that is not in their cart.
-	 * Access follows the record the file belongs to: order attachments are for
-	 * shop staff, and a quote attachment is for whoever can edit that quote.
+	 * Access follows the record the file belongs to: a quote attachment is for
+	 * whoever can edit that quote, and other modules (such as the WooCommerce
+	 * integration) can grant cart or order access through the filter.
 	 *
 	 * @param string $token File token.
 	 * @return bool
 	 */
 	private function can_download( string $token ): bool {
-		if ( current_user_can( 'edit_shop_orders' ) ) {
+		/**
+		 * Filters whether the current user may download a file token that is not
+		 * in their active cart.
+		 *
+		 * @param bool   $allowed Whether access is already granted.
+		 * @param string $token   File token.
+		 */
+		if ( apply_filters( 'openforms_can_download', false, $token ) ) {
 			return true;
 		}
 
@@ -102,32 +108,6 @@ class Download {
 		);
 
 		return (int) $post_id;
-	}
-
-	/**
-	 * Whether the current shopper's cart still references the file token.
-	 *
-	 * @param string $token File token.
-	 * @return bool
-	 */
-	private function token_in_cart( string $token ): bool {
-		if ( ! function_exists( 'WC' ) || ! isset( WC()->cart ) || ! is_object( WC()->cart ) ) {
-			return false;
-		}
-
-		foreach ( WC()->cart->get_cart() as $cart_item ) {
-			if ( empty( $cart_item['openforms_data'] ) ) {
-				continue;
-			}
-
-			foreach ( DataHelpers::file_tokens( DataHelpers::decode( $cart_item['openforms_data'] ) ) as $file_key ) {
-				if ( hash_equals( $token, $file_key ) ) {
-					return true;
-				}
-			}
-		}
-
-		return false;
 	}
 
 	/**

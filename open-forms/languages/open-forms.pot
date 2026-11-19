@@ -1,0 +1,419 @@
+# Copyright (C) 2026 OpenForms
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: OpenForms 1.2.0\n"
+"Report-Msgid-Bugs-To: https://github.com/Laserology/open-forms/issues\n"
+"POT-Creation-Date: 2026-11-19 00:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: xgettext\n"
+"X-Domain: open-forms\n"
+
+#. translators: %s: The current PHP version running on the server.
+#: OpenForms.php:24
+#, php-format
+msgid "OpenForms requires PHP 8.0 or later. Your server is running PHP %s"
+msgstr ""
+
+#: src/Services/Download.php:43
+msgid "File not found."
+msgstr ""
+
+#: src/Services/Download.php:47
+msgid "You are not allowed to download this file."
+msgstr ""
+
+#: src/Services/QuoteHandler.php:149 src/Services/QuoteHandler.php:151
+msgid "Quotes"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:150
+msgid "Quote"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:224 src/Services/QuoteHandler.php:450
+#: src/Services/FormRegistry.php:514 src/Blocks/GetQuote.php:312
+msgid "Quote form"
+msgstr ""
+
+#. translators: %s: formatted total file size.
+#: src/Services/QuoteHandler.php:411
+#, php-format
+msgid "Too large to attach (%s) — download from the quote in the admin."
+msgstr ""
+
+#: src/Services/QuoteHandler.php:419 src/Services/QuoteHandler.php:604
+#: src/Services/QuoteHandler.php:761
+msgid "Form"
+msgstr ""
+
+#. translators: 1: site name, 2: quote form name.
+#: src/Services/QuoteHandler.php:448
+#, php-format
+msgid "[%1$s] New quote request: %2$s"
+msgstr ""
+
+#. translators: %s: site name.
+#: src/Services/QuoteHandler.php:461
+#, php-format
+msgid "A new quote request was submitted on %s."
+msgstr ""
+
+#: src/Services/QuoteHandler.php:475
+msgid "Open this quote in the admin"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:605
+msgid "Preview"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:606
+msgid "Source"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:690
+msgid "Filter by form"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:691
+msgid "All forms"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:736
+msgid "Quote Details"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:765 src/Services/QuoteHandler.php:828
+#: src/Services/FormRegistry.php:207
+msgid "Name"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:799
+msgid "Attachments"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:803
+msgid "Submitted from"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:836 src/Services/FormRegistry.php:212
+#: src/FieldHelpers.php:46
+msgid "Email"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:837 src/Services/FormRegistry.php:218
+msgid "Phone"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:838
+msgid "Budget"
+msgstr ""
+
+#: src/Services/QuoteHandler.php:839
+msgid "Message"
+msgstr ""
+
+#: src/Services/FormRegistry.php:223
+msgid "Estimated Budget"
+msgstr ""
+
+#: src/Services/FormRegistry.php:226
+msgid "Less than $1,000"
+msgstr ""
+
+#: src/Services/FormRegistry.php:227
+msgid "$1,000 - $5,000"
+msgstr ""
+
+#: src/Services/FormRegistry.php:228
+msgid "$5,000 - $10,000"
+msgstr ""
+
+#: src/Services/FormRegistry.php:229
+msgid "$10,000+"
+msgstr ""
+
+#: src/Services/FormRegistry.php:234
+msgid "Project Details"
+msgstr ""
+
+#: src/Services/FormRegistry.php:240
+msgid "File Upload"
+msgstr ""
+
+#: src/Blocks/GetQuote.php:51
+msgid "Thanks! Your request has been sent. We will be in touch shortly."
+msgstr ""
+
+#: src/Blocks/GetQuote.php:61
+msgid "Get a Quote"
+msgstr ""
+
+#: src/Blocks/GetQuote.php:62
+msgid "A quote request form. Submissions are stored in the admin."
+msgstr ""
+
+#: src/Blocks/GetQuote.php:125
+msgid "Quote Field"
+msgstr ""
+
+#: src/Blocks/GetQuote.php:126
+msgid "A field inside a Get a Quote form."
+msgstr ""
+
+#: src/Blocks/GetQuote.php:209
+msgid "Success Message"
+msgstr ""
+
+#: src/Blocks/GetQuote.php:210
+msgid "Shown after the form is submitted successfully."
+msgstr ""
+
+#: src/Blocks/GetQuote.php:393 src/FieldHelpers.php:111
+msgid "Select an option…"
+msgstr ""
+
+#: src/Blocks/GetQuote.php:493
+msgid "Choose files"
+msgstr ""
+
+#: src/Blocks/GetQuote.php:640
+msgid "Sending your request…"
+msgstr ""
+
+#: src/Blocks/GetQuote.php:640
+msgid "Uploading your file, please wait…"
+msgstr ""
+
+#: src/Blocks/GetQuote.php:671
+msgid ""
+"Sorry, the attached file could not be accepted. Please check its type and "
+"size and try again."
+msgstr ""
+
+#: src/Blocks/GetQuote.php:675
+msgid ""
+"Sorry, you can only send one request every few minutes. Please try again "
+"shortly."
+msgstr ""
+
+#: src/Blocks/GetQuote.php:679
+msgid "Sorry, your quote request could not be sent. Please try again."
+msgstr ""
+
+#: src/FieldHelpers.php:44
+msgid "One-line text"
+msgstr ""
+
+#: src/FieldHelpers.php:45
+msgid "Multi-line text"
+msgstr ""
+
+#: src/FieldHelpers.php:47
+msgid "URL"
+msgstr ""
+
+#: src/FieldHelpers.php:48
+msgid "Phone number"
+msgstr ""
+
+#: src/FieldHelpers.php:49
+msgid "Number"
+msgstr ""
+
+#: src/FieldHelpers.php:50
+msgid "Password"
+msgstr ""
+
+#: src/FieldHelpers.php:51
+msgid "Colour"
+msgstr ""
+
+#: src/FieldHelpers.php:52
+msgid "Date"
+msgstr ""
+
+#: src/FieldHelpers.php:53
+msgid "Time"
+msgstr ""
+
+#: src/FieldHelpers.php:54
+msgid "File upload"
+msgstr ""
+
+#: src/FieldHelpers.php:55
+msgid "Dropdown"
+msgstr ""
+
+#. translators: %s: field name. Shown when a required file field is left empty.
+#. translators: %s: field name. Shown when a required field is left empty.
+#: src/FieldHelpers.php:142 src/FieldHelpers.php:157
+#, php-format
+msgid "%s is required."
+msgstr ""
+
+#. translators: %s: field name. Shown when the value is not a well-formed URL.
+#: src/FieldHelpers.php:163
+#, php-format
+msgid "%s is not a valid URL."
+msgstr ""
+
+#. translators: %s: field name. Shown when the value is not a well-formed email address.
+#: src/FieldHelpers.php:168
+#, php-format
+msgid "%s is not a valid email address."
+msgstr ""
+
+#. translators: %s: field name. Shown when the value is not numeric.
+#: src/FieldHelpers.php:173
+#, php-format
+msgid "%s must be a number."
+msgstr ""
+
+#. translators: %s: field name. Shown when the value is not a valid colour.
+#: src/FieldHelpers.php:178
+#, php-format
+msgid "%s is not a valid colour."
+msgstr ""
+
+#. translators: %s: field name. Shown when a value is not one of the configured options.
+#: src/FieldHelpers.php:183
+#, php-format
+msgid "%s must be one of the available options."
+msgstr ""
+
+#. translators: %s: field or file name. Shown when an upload is larger than the allowed maximum.
+#: src/FieldHelpers.php:490
+#, php-format
+msgid "%s is too large."
+msgstr ""
+
+#. translators: %s: field or file name. Shown when the uploaded file type is not allowed.
+#: src/FieldHelpers.php:495
+#, php-format
+msgid "%s is not an allowed file type."
+msgstr ""
+
+#: src/FieldHelpers.php:499
+msgid "The selected files are too large to upload together."
+msgstr ""
+
+#. translators: Shown when an upload request is refused because the requester sent too many too recently.
+#: src/FieldHelpers.php:504
+msgid ""
+"Too many uploads have been sent from this address. Please try again later."
+msgstr ""
+
+#. translators: %s: field or file name. Shown when an upload fails or cannot be stored.
+#: src/FieldHelpers.php:508
+#, php-format
+msgid "%s could not be uploaded."
+msgstr ""
+
+#: assets/js/quote-editor.js:34
+msgid "Thanks! Your request has been sent."
+msgstr ""
+
+#: assets/js/quote-editor.js:47
+msgid "Tell us about your project and we will be in touch."
+msgstr ""
+
+#: assets/js/quote-editor.js:52
+msgid "Details"
+msgstr ""
+
+#: assets/js/quote-editor.js:53
+msgid "Attachment"
+msgstr ""
+
+#: assets/js/quote-editor.js:54
+msgid "Request a Quote"
+msgstr ""
+
+#: assets/js/quote-editor.js:84 assets/js/quote-editor.js:326
+#: assets/js/quote-editor.js:330
+msgid "Field"
+msgstr ""
+
+#: assets/js/quote-editor.js:215
+msgid "Form name"
+msgstr ""
+
+#: assets/js/quote-editor.js:218
+msgid "Shown as a prefix on submissions in the admin."
+msgstr ""
+
+#: assets/js/quote-editor.js:224
+msgid "Form ID"
+msgstr ""
+
+#: assets/js/quote-editor.js:227
+msgid "Generated automatically and used to group submissions."
+msgstr ""
+
+#: assets/js/quote-editor.js:328
+msgid "Title"
+msgstr ""
+
+#: assets/js/quote-editor.js:336
+msgid "Field type"
+msgstr ""
+
+#: assets/js/quote-editor.js:346
+msgid "Options"
+msgstr ""
+
+#: assets/js/quote-editor.js:348
+msgid "One option per line."
+msgstr ""
+
+#: assets/js/quote-editor.js:354
+msgid "Placeholder"
+msgstr ""
+
+#: assets/js/quote-editor.js:361 assets/js/quote-editor.js:372
+msgid "Default value"
+msgstr ""
+
+#: assets/js/quote-editor.js:363
+msgid "None"
+msgstr ""
+
+#: assets/js/quote-editor.js:375
+msgid "Shown before the visitor changes the field."
+msgstr ""
+
+#: assets/js/quote-editor.js:381
+msgid "Required"
+msgstr ""
+
+#: assets/js/quote-editor.js:389
+msgid "Full width"
+msgstr ""
+
+#: assets/js/quote-editor.js:396
+msgid "Show in admin preview"
+msgstr ""
+
+#: assets/js/quote-editor.js:397
+msgid "Show this value in the quick preview on the quotes screen."
+msgstr ""
+
+#: assets/js/quote-editor.js:403
+msgid "This field only renders inside a Get a Quote form."
+msgstr ""
+
+#: assets/js/quote-editor.js:444
+msgid "Success message"
+msgstr ""
+
+#: assets/js/quote-editor.js:452
+msgid "This message only renders inside a Get a Quote form."
+msgstr ""

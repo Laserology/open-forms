@@ -1,6 +1,6 @@
 <?php
 /**
- * Bootstrap: wires the plugin submodules into WooCommerce's admin.
+ * Bootstrap: wires the plugin submodules into WordPress.
  */
 
 namespace OpenForms;
@@ -12,10 +12,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Init {
 
 	const MODULES = array(
-		Admin\ProductSettings::class,
-		Frontend\ProductForm::class,
-		Services\CartHandler::class,
-		DTOs\OrderFormData::class,
 		Services\Download::class,
 		Services\Cleanup::class,
 		Blocks\GetQuote::class,
@@ -49,7 +45,7 @@ class Init {
 
 			$relative_class = substr( $class, strlen( $prefix ) );
 
-			// Map namespace to file path: Admin\ProductSettings -> src/Admin/ProductSettings.php
+			// Map namespace to file path: Services\QuoteHandler -> src/Services/QuoteHandler.php
 			$file = dirname( __DIR__ ) . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . str_replace( '\\', DIRECTORY_SEPARATOR, $relative_class ) . '.php';
 
 			if ( file_exists( $file ) ) {

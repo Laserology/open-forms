@@ -2,12 +2,12 @@
 /**
  * Plugin Name: OpenForms
  * Plugin URI: https://github.com/Laserology/open-forms/
- * Description: Add modular forms to WooCommerce products and variations. Form data and file uploads are stored against the order for easy review.
+ * Description: Add modular quote forms to any WordPress site. Product option forms for WooCommerce are available through the OpenForms for WooCommerce add-on.
  * License: GPL v2 or later
- * Version: 1.1.0
- * Author: Evan
+ * Version: 1.2.0
+ * Author: Laserology
  * Author URI: https://laserology.net/
- * Requires Plugins: woocommerce
+ * Requires PHP: 8.0
  * Text Domain: open-forms
  */
 
@@ -41,10 +41,10 @@ class OpenForms {
 	}
 }
 
-// Initialize the plugin once WooCommerce has loaded.
+// Initialize the plugin once all plugins have loaded.
 add_action( 'plugins_loaded', function() {
 	if ( ! defined( 'OPENFORMS_VERSION' ) ) {
-		define( 'OPENFORMS_VERSION', '1.1.0' );
+		define( 'OPENFORMS_VERSION', '1.2.0' );
 	}
 	if ( ! defined( 'OPENFORMS_FILE' ) ) {
 		define( 'OPENFORMS_FILE', __FILE__ );
