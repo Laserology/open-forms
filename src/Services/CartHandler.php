@@ -70,10 +70,19 @@ class CartHandler {
 			return $passed;
 		}
 
-		$errors = array();
+		$errors       = array();
+		$upload_total = 0;
 
 		foreach ( $fields as $input_key => $field ) {
 			$errors = array_merge( $errors, FieldHelpers::validate( $input_key, $field ) );
+
+			if ( 'file' === $field['type'] ) {
+				$upload_total += FieldHelpers::upload_size( 'openforms', $input_key );
+			}
+		}
+
+		if ( empty( $errors ) && $upload_total > FieldHelpers::max_request_upload_size() ) {
+			$errors[] = FieldHelpers::upload_error_message( 'request_size', '' );
 		}
 
 		if ( ! empty( $errors ) ) {
@@ -106,9 +115,7 @@ class CartHandler {
 
 		foreach ( $fields as $input_key => $field ) {
 			if ( 'file' === $field['type'] ) {
-				$file = FieldHelpers::save_file( $input_key );
-
-				if ( $file ) {
+				foreach ( FieldHelpers::save_files( $input_key ) as $file ) {
 					$file['type']       = 'file';
 					$file['field_name'] = $field['name'];
 					$data[]             = $file;

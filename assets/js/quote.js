@@ -1,14 +1,16 @@
 /**
  * Get a Quote frontend. The file picker is rendered as a themed button and the
- * native control is hidden, so mirror the chosen file's name next to it.
+ * native control is hidden, so mirror the chosen file names next to it.
  */
 (function () {
-	function fileName(input) {
+	function fileNames(input) {
 		if (!input.files || !input.files.length) {
 			return '';
 		}
 
-		return input.files[0].name;
+		return Array.prototype.map.call(input.files, function (file) {
+			return file.name;
+		}).join(', ');
 	}
 
 	document.addEventListener('change', function (event) {
@@ -26,9 +28,22 @@
 		var name = field ? field.querySelector('.openforms-quote__file-name') : null;
 
 		if (name) {
-			name.textContent = fileName(input);
+			name.textContent = fileNames(input);
 		}
 	});
+
+	// A form may contain more than one file field, so check every picker.
+	function hasFiles(form) {
+		var inputs = form.querySelectorAll('.openforms-quote__file-input');
+
+		for (var i = 0; i < inputs.length; i++) {
+			if (inputs[i].files && inputs[i].files.length) {
+				return true;
+			}
+		}
+
+		return false;
+	}
 
 	// The form posts to admin-post.php, so there is no navigation to show
 	// progress. Reveal the status line and lock the button as soon as the
@@ -41,12 +56,11 @@
 			return;
 		}
 
-		var file = form.querySelector('.openforms-quote__file-input');
 		var status = form.querySelector('.openforms-quote__status');
 		var button = form.querySelector('button[type="submit"]');
 
 		if (status) {
-			status.textContent = file && file.files && file.files.length ? status.dataset.uploading : status.dataset.sending;
+			status.textContent = hasFiles(form) ? status.dataset.uploading : status.dataset.sending;
 			status.hidden = false;
 		}
 

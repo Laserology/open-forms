@@ -19,6 +19,7 @@ class Init {
 		Services\Download::class,
 		Services\Cleanup::class,
 		Blocks\GetQuote::class,
+		Services\FormRegistry::class,
 		Services\QuoteHandler::class,
 	);
 

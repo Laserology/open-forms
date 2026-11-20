@@ -170,10 +170,33 @@ class Cleanup {
 			return;
 		}
 
-		$file = get_post_meta( $post_id, QuoteHandler::FILE_META, true );
+		$files = get_post_meta( $post_id, QuoteHandler::FILE_META, true );
 
-		if ( is_array( $file ) && ! empty( $file['file_key'] ) ) {
-			$this->delete_file( $file['file_key'] );
+		if ( ! is_array( $files ) ) {
+			return;
+		}
+
+		if ( isset( $files['file_key'] ) ) {
+			$files = array( $files );
+		}
+
+		foreach ( $files as $group ) {
+			if ( ! is_array( $group ) ) {
+				continue;
+			}
+
+			// Older quotes stored a flat list of files; newer ones group them
+			// by the field that received them.
+			if ( isset( $group['file_key'] ) ) {
+				$this->delete_file( $group['file_key'] );
+				continue;
+			}
+
+			foreach ( $group as $file ) {
+				if ( is_array( $file ) && ! empty( $file['file_key'] ) ) {
+					$this->delete_file( $file['file_key'] );
+				}
+			}
 		}
 	}
 
