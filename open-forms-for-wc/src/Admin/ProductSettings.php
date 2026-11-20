@@ -3,9 +3,10 @@
  * ProductSettings: product admin. Adds the form configuration to products and variations.
  */
 
-namespace OpenForms\Admin;
+namespace OpenFormsWooCommerce\Admin;
 
 use OpenForms\FieldHelpers;
+use OpenFormsWooCommerce\ProductFields;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -36,7 +37,7 @@ class ProductSettings {
 	 */
 	public function add_tab( array $tabs ): array {
 		$tabs['openforms'] = array(
-			'label'    => __( 'OpenForms', 'open-forms' ),
+			'label'    => __( 'OpenForms', 'open-forms-for-wc' ),
 			'target'   => 'openforms_product_data',
 			'priority' => 65,
 		);
@@ -59,10 +60,10 @@ class ProductSettings {
 		wp_nonce_field( 'openforms_save_fields', 'openforms_nonce' );
 
 		$enabled = 'yes' === get_post_meta( $post->ID, '_openforms_enabled', true );
-		$fields  = FieldHelpers::for_post( $post->ID );
+		$fields  = ProductFields::for_post( $post->ID );
 
 		echo '<p class="openforms-intro">';
-		echo esc_html__( 'Forms configured here appear on the product page above the add to cart button. On a variable product these apply to every variation.', 'open-forms' );
+		echo esc_html__( 'Forms configured here appear on the product page above the add to cart button. On a variable product these apply to every variation.', 'open-forms-for-wc' );
 		echo '</p>';
 
 		$this->render_config( $post->ID, $enabled, $fields, 'openforms' );
@@ -79,17 +80,17 @@ class ProductSettings {
 	 */
 	public function variation_panel( int $loop, array $variation_data, \WP_Post $variation ): void {
 		$enabled = 'yes' === get_post_meta( $variation->ID, '_openforms_enabled', true );
-		$fields  = FieldHelpers::for_post( $variation->ID );
+		$fields  = ProductFields::for_post( $variation->ID );
 
 		echo '<div class="openforms-variation-panel">';
-		echo '<h4>' . esc_html__( 'OpenForms', 'open-forms' ) . '</h4>';
+		echo '<h4>' . esc_html__( 'OpenForms', 'open-forms-for-wc' ) . '</h4>';
 
 		// Per-variation nonce so the panel config can only be saved by an
 		// authorized request. Defense in depth on top of the product save.
 		wp_nonce_field( 'openforms_save_variation_' . $variation->ID, 'openforms_variation_nonce_' . $variation->ID );
 
 		echo '<p class="openforms-intro">';
-		echo esc_html__( 'Forms configured here only apply to this variation. Fields are shown when the variation is selected.', 'open-forms' );
+		echo esc_html__( 'Forms configured here only apply to this variation. Fields are shown when the variation is selected.', 'open-forms-for-wc' );
 		echo '</p>';
 
 		$this->render_config( $variation->ID, $enabled, $fields, 'openforms_variation[' . $variation->ID . ']' );
@@ -109,22 +110,22 @@ class ProductSettings {
 		echo '<div class="openforms-config">';
 
 		echo '<p class="form-field openforms-enabled">';
-		echo '<label for="openforms-enabled-' . esc_attr( $post_id ) . '">' . esc_html__( 'Enable forms', 'open-forms' ) . '</label>';
+		echo '<label for="openforms-enabled-' . esc_attr( $post_id ) . '">' . esc_html__( 'Enable forms', 'open-forms-for-wc' ) . '</label>';
 		echo '<input type="checkbox" class="checkbox" id="openforms-enabled-' . esc_attr( $post_id ) . '" name="' . esc_attr( $prefix ) . '[enabled]" value="1"' . checked( $enabled, true, false ) . ' />';
 		echo '</p>';
 
 		echo '<table class="widefat striped openforms-fields-table">';
 		echo '<thead><tr>';
-		echo '<th>' . esc_html__( 'Name', 'open-forms' ) . '</th>';
-		echo '<th>' . esc_html__( 'Type', 'open-forms' ) . '</th>';
-		echo '<th class="openforms-default-col">' . esc_html__( 'Default', 'open-forms' ) . '</th>';
-		echo '<th class="openforms-required-col">' . esc_html__( 'Required', 'open-forms' ) . '</th>';
+		echo '<th>' . esc_html__( 'Name', 'open-forms-for-wc' ) . '</th>';
+		echo '<th>' . esc_html__( 'Type', 'open-forms-for-wc' ) . '</th>';
+		echo '<th class="openforms-default-col">' . esc_html__( 'Default', 'open-forms-for-wc' ) . '</th>';
+		echo '<th class="openforms-required-col">' . esc_html__( 'Required', 'open-forms-for-wc' ) . '</th>';
 		echo '<th class="openforms-actions-col"></th>';
 		echo '</tr></thead>';
 		echo '<tbody class="openforms-fields-body">';
 
 		if ( empty( $fields ) ) {
-			echo '<tr class="openforms-empty-row"><td colspan="5">' . esc_html__( 'No fields added yet.', 'open-forms' ) . '</td></tr>';
+			echo '<tr class="openforms-empty-row"><td colspan="5">' . esc_html__( 'No fields added yet.', 'open-forms-for-wc' ) . '</td></tr>';
 		}
 
 		$row = 0;
@@ -137,11 +138,11 @@ class ProductSettings {
 		// Hidden template rows used by the admin JS. Kept inside the tbody so
 		// the <tr> markup stays valid.
 		$this->render_field_row( $prefix, 'INDEX', array(), true );
-		echo '<tr class="openforms-empty-row openforms-empty-template" hidden><td colspan="5">' . esc_html__( 'No fields added yet.', 'open-forms' ) . '</td></tr>';
+		echo '<tr class="openforms-empty-row openforms-empty-template" hidden><td colspan="5">' . esc_html__( 'No fields added yet.', 'open-forms-for-wc' ) . '</td></tr>';
 
 		echo '</tbody></table>';
 
-		echo '<p><button type="button" class="button openforms-add-field">' . esc_html__( 'Add Field', 'open-forms' ) . '</button></p>';
+		echo '<p><button type="button" class="button openforms-add-field">' . esc_html__( 'Add Field', 'open-forms-for-wc' ) . '</button></p>';
 
 		echo '</div>';
 	}
@@ -164,9 +165,9 @@ class ProductSettings {
 		$row_class = $template ? 'openforms-field-row openforms-field-template' : 'openforms-field-row';
 
 		echo '<tr class="' . esc_attr( $row_class ) . '"' . ( $template ? ' hidden' : '' ) . '>';
-		echo '<td><input type="text" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][name]" value="' . esc_attr( $name ) . '" placeholder="' . esc_attr__( 'Field name', 'open-forms' ) . '" />';
+		echo '<td><input type="text" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][name]" value="' . esc_attr( $name ) . '" placeholder="' . esc_attr__( 'Field name', 'open-forms-for-wc' ) . '" />';
 		// Options for a dropdown field. Hidden with JS while another type is picked.
-		echo '<textarea class="openforms-field-options" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][options]" rows="2" placeholder="' . esc_attr__( 'One option per line', 'open-forms' ) . '"' . ( 'select' === $type ? '' : ' hidden' ) . '>' . esc_textarea( implode( "\n", $options ) ) . '</textarea>';
+		echo '<textarea class="openforms-field-options" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][options]" rows="2" placeholder="' . esc_attr__( 'One option per line', 'open-forms-for-wc' ) . '"' . ( 'select' === $type ? '' : ' hidden' ) . '>' . esc_textarea( implode( "\n", $options ) ) . '</textarea>';
 		echo '</td>';
 		echo '<td><select class="openforms-field-type" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][type]">';
 
@@ -175,9 +176,9 @@ class ProductSettings {
 		}
 
 		echo '</select></td>';
-		echo '<td class="openforms-default-col"><input type="text" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][default]" value="' . esc_attr( $default ) . '" placeholder="' . esc_attr__( 'Default value', 'open-forms' ) . '" /></td>';
+		echo '<td class="openforms-default-col"><input type="text" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][default]" value="' . esc_attr( $default ) . '" placeholder="' . esc_attr__( 'Default value', 'open-forms-for-wc' ) . '" /></td>';
 		echo '<td class="openforms-required-col"><input type="checkbox" name="' . esc_attr( $prefix ) . '[fields][' . esc_attr( $index ) . '][required]" value="1"' . checked( $required, true, false ) . ' /></td>';
-		echo '<td class="openforms-actions-col"><button type="button" class="button openforms-remove-field">' . esc_html__( 'Remove', 'open-forms' ) . '</button></td>';
+		echo '<td class="openforms-actions-col"><button type="button" class="button openforms-remove-field">' . esc_html__( 'Remove', 'open-forms-for-wc' ) . '</button></td>';
 		echo '</tr>';
 	}
 
@@ -287,7 +288,7 @@ class ProductSettings {
 			return;
 		}
 
-		wp_enqueue_script( 'openforms-admin', OPENFORMS_URL . 'assets/js/admin.js', array( 'jquery' ), OPENFORMS_VERSION, true );
-		wp_enqueue_style( 'openforms-admin', OPENFORMS_URL . 'assets/css/admin.css', array(), OPENFORMS_VERSION );
+		wp_enqueue_script( 'openforms-wc-admin', OPENFORMS_WC_URL . 'assets/js/admin.js', array( 'jquery' ), OPENFORMS_WC_VERSION, true );
+		wp_enqueue_style( 'openforms-wc-admin', OPENFORMS_WC_URL . 'assets/css/admin.css', array(), OPENFORMS_WC_VERSION );
 	}
 }

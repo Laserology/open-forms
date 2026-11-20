@@ -3,9 +3,10 @@
  * ProductForm: frontend. Renders the configured fields above the add to cart button.
  */
 
-namespace OpenForms\Frontend;
+namespace OpenFormsWooCommerce\Frontend;
 
 use OpenForms\FieldHelpers;
+use OpenFormsWooCommerce\ProductFields;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -38,13 +39,13 @@ class ProductForm {
 
 		// Product level fields. These apply to the product itself (simple)
 		// or to every variation of a variable product.
-		$this->render_field_list( FieldHelpers::for_post( $product->get_id() ) );
+		$this->render_field_list( ProductFields::for_post( $product->get_id() ) );
 
 		// Variation level fields. These only apply to their specific
 		// variation and are toggled with JS when the variation is selected.
 		if ( $product->is_type( 'variable' ) ) {
 			foreach ( $product->get_children() as $variation_id ) {
-				$this->render_field_list( FieldHelpers::for_post( $variation_id ), $variation_id );
+				$this->render_field_list( ProductFields::for_post( $variation_id ), $variation_id );
 			}
 		}
 	}
@@ -93,7 +94,7 @@ class ProductForm {
 			return;
 		}
 
-		wp_enqueue_script( 'openforms-frontend', OPENFORMS_URL . 'assets/js/frontend.js', array( 'jquery' ), OPENFORMS_VERSION, true );
-		wp_enqueue_style( 'openforms-frontend', OPENFORMS_URL . 'assets/css/frontend.css', array(), OPENFORMS_VERSION );
+		wp_enqueue_script( 'openforms-wc-frontend', OPENFORMS_WC_URL . 'assets/js/frontend.js', array( 'jquery' ), OPENFORMS_WC_VERSION, true );
+		wp_enqueue_style( 'openforms-wc-frontend', OPENFORMS_WC_URL . 'assets/css/frontend.css', array(), OPENFORMS_WC_VERSION );
 	}
 }

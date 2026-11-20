@@ -1,11 +1,11 @@
 <?php
 /**
  * Cleanup: deletes uploaded files that are no longer referenced anywhere once
- * their cart item is removed or their order is deleted, so orphaned uploads
- * do not pile up in the private storage folder.
+ * their cart item is removed or their order is deleted, so orphaned uploads do
+ * not pile up in the private storage folder.
  */
 
-namespace OpenForms\Services;
+namespace OpenFormsWooCommerce\Services;
 
 use OpenForms\DataHelpers;
 use OpenForms\FieldHelpers;
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Removes orphaned uploads when their only reference goes away.
+ * Removes uploads whose only reference is a removed cart item or order.
  */
 class Cleanup {
 
@@ -34,10 +34,6 @@ class Cleanup {
 		add_action( 'woocommerce_cart_item_restored', array( $this, 'restore_cart_item' ), 10, 2 );
 		add_action( 'woocommerce_cart_emptied', array( $this, 'cleanup_emptied_cart' ) );
 
-		// Abandoned carts leave uploads no hook ever sees.
-		add_action( 'init', array( $this, 'schedule_cleanup' ) );
-		add_action( 'openforms_cleanup_orphans', array( $this, 'cleanup_orphans' ) );
-
 		// Both hooks cover order deletion: HPOS and modern legacy stores fire
 		// woocommerce_before_delete_order (WooCommerce 8.0+), older stores only
 		// fire before_delete_post. Priority 1 runs before WooCommerce's own
@@ -45,8 +41,8 @@ class Cleanup {
 		add_action( 'woocommerce_before_delete_order', array( $this, 'cleanup_order' ), 1, 2 );
 		add_action( 'before_delete_post', array( $this, 'cleanup_order_post' ), 1 );
 
-		// Quote attachments are private to their quote, so they go with it.
-		add_action( 'before_delete_post', array( $this, 'cleanup_quote_post' ), 1 );
+		// Let the shared orphan sweep know that an order still references a file.
+		add_filter( 'openforms_file_token_in_use', array( $this, 'token_in_use' ), 10, 2 );
 	}
 
 	/**
@@ -160,121 +156,14 @@ class Cleanup {
 	}
 
 	/**
-	 * Delete the attachment stored for a quote that is about to be deleted. The
-	 * token only ever belongs to that quote, so no other reference is checked.
+	 * Tell the shared orphan sweep that an order references the file token.
 	 *
-	 * @param int $post_id Post ID.
-	 */
-	public function cleanup_quote_post( int $post_id ): void {
-		if ( 'openforms_quote' !== get_post_type( $post_id ) ) {
-			return;
-		}
-
-		$files = get_post_meta( $post_id, QuoteHandler::FILE_META, true );
-
-		if ( ! is_array( $files ) ) {
-			return;
-		}
-
-		if ( isset( $files['file_key'] ) ) {
-			$files = array( $files );
-		}
-
-		foreach ( $files as $group ) {
-			if ( ! is_array( $group ) ) {
-				continue;
-			}
-
-			// Older quotes stored a flat list of files; newer ones group them
-			// by the field that received them.
-			if ( isset( $group['file_key'] ) ) {
-				$this->delete_file( $group['file_key'] );
-				continue;
-			}
-
-			foreach ( $group as $file ) {
-				if ( is_array( $file ) && ! empty( $file['file_key'] ) ) {
-					$this->delete_file( $file['file_key'] );
-				}
-			}
-		}
-	}
-
-	/**
-	 * Schedule the daily orphan sweep once.
-	 */
-	public function schedule_cleanup(): void {
-		if ( ! wp_next_scheduled( 'openforms_cleanup_orphans' ) ) {
-			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'openforms_cleanup_orphans' );
-		}
-	}
-
-	/**
-	 * Delete files no order or quote references. Cart references live in the
-	 * session and cannot be queried, so only files past the grace period count.
-	 */
-	public function cleanup_orphans(): void {
-		$files = glob( FieldHelpers::upload_dir() . '/*' );
-
-		if ( ! is_array( $files ) ) {
-			return;
-		}
-
-		$cutoff = time() - self::orphan_age();
-
-		foreach ( $files as $path ) {
-			if ( ! is_file( $path ) || filemtime( $path ) > $cutoff ) {
-				continue;
-			}
-
-			$parts = explode( '-', basename( $path ), 2 );
-
-			if ( count( $parts ) < 2 || ! FieldHelpers::is_valid_token( $parts[0] ) ) {
-				continue;
-			}
-
-			$token = $parts[0];
-
-			if ( $this->token_in_orders( $token ) || $this->token_in_quotes( $token ) ) {
-				continue;
-			}
-
-			$this->delete_file( $token );
-		}
-	}
-
-	/**
-	 * Age an unreferenced upload is kept, in seconds.
-	 *
-	 * @return int
-	 */
-	private static function orphan_age(): int {
-		/**
-		 * Filters how long an orphaned upload is kept, in seconds.
-		 *
-		 * @param int $seconds Age before the file is deleted.
-		 */
-		return (int) apply_filters( 'openforms_orphan_file_age', WEEK_IN_SECONDS );
-	}
-
-	/**
-	 * Whether a quote still references the file token.
-	 *
-	 * @param string $token File token.
+	 * @param bool   $in_use Whether another module already claims the token.
+	 * @param string $token  File token.
 	 * @return bool
 	 */
-	private function token_in_quotes( string $token ): bool {
-		global $wpdb;
-
-		$found = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$wpdb->prepare(
-				"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value LIKE %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				QuoteHandler::FILE_META,
-				'%' . $wpdb->esc_like( $token ) . '%'
-			)
-		);
-
-		return (bool) $found;
+	public function token_in_use( bool $in_use, string $token ): bool {
+		return $in_use || $this->token_in_orders( $token );
 	}
 
 	/**

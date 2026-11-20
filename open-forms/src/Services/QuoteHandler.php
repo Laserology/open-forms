@@ -498,11 +498,17 @@ class QuoteHandler {
 		}
 
 		if ( ! wp_mail( $to, $subject, $body, $headers, $attachments ) ) {
-			wc_get_logger()->log(
-				'error',
-				'OpenForms: the new quote notification email could not be sent.',
-				array( 'source' => 'openforms' )
-			);
+			$message = 'OpenForms: the new quote notification email could not be sent.';
+
+			if ( function_exists( 'wc_get_logger' ) ) {
+				wc_get_logger()->log(
+					'error',
+					$message,
+					array( 'source' => 'openforms' )
+				);
+			} else {
+				error_log( $message ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			}
 		}
 	}
 

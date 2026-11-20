@@ -1,0 +1,57 @@
+<?php
+/**
+ * Bootstrap: wires the WooCommerce integration submodules into WooCommerce.
+ */
+
+namespace OpenFormsWooCommerce;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+class Init {
+
+	const MODULES = array(
+		Admin\ProductSettings::class,
+		Frontend\ProductForm::class,
+		Services\CartHandler::class,
+		DTOs\OrderFormData::class,
+		Services\Cleanup::class,
+		Services\DownloadAccess::class,
+	);
+
+	/**
+	 * Register autoloader for src/*.php classes and boot each module.
+	 */
+	public static function boot(): void {
+		// Register the autoloader for all files.
+		self::register_autoloader();
+
+		// Instantiate each modular component.
+		foreach ( self::MODULES as $module ) {
+			new $module();
+		}
+	}
+
+	/**
+	 * Simple class autoloader for src/ classes.
+	 */
+	private static function register_autoloader(): void {
+		spl_autoload_register( function ( string $class ): void {
+			$prefix = 'OpenFormsWooCommerce\\';
+
+			if ( strncmp( $class, $prefix, strlen( $prefix ) ) !== 0 ) {
+				return;
+			}
+
+			$relative_class = substr( $class, strlen( $prefix ) );
+
+			// Map namespace to file path: Admin\ProductSettings -> src/Admin/ProductSettings.php
+			$file = dirname( __DIR__ ) . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . str_replace( '\\', DIRECTORY_SEPARATOR, $relative_class ) . '.php';
+
+			if ( file_exists( $file ) ) {
+				require_once $file;
+			}
+		} );
+	}
+}

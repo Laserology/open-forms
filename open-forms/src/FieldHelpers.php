@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Handles the available field types and the shared helpers used by the
- * admin, frontend and checkout modules.
+ * quote form and the WooCommerce add-on.
  */
 class FieldHelpers {
 
@@ -83,49 +83,6 @@ class FieldHelpers {
 	}
 
 	/**
-	 * Get the enabled, cleaned field list for a product or variation.
-	 *
-	 * @param int $post_id Product or variation post ID.
-	 * @return array Fields keyed by field key.
-	 */
-	public static function for_post( int $post_id ): array {
-		if ( 'yes' !== get_post_meta( $post_id, '_openforms_enabled', true ) ) {
-			return array();
-		}
-
-		$fields = get_post_meta( $post_id, '_openforms_fields', true );
-
-		if ( ! is_array( $fields ) || empty( $fields ) ) {
-			return array();
-		}
-
-		$clean = array();
-
-		foreach ( $fields as $field ) {
-			$name = isset( $field['name'] ) ? sanitize_text_field( $field['name'] ) : '';
-			$type = isset( $field['type'] ) && isset( self::types()[ $field['type'] ] ) ? $field['type'] : 'text';
-			$key  = isset( $field['key'] ) ? $field['key'] : sanitize_title( $name );
-
-			if ( '' === $name ) {
-				continue;
-			}
-
-			$options = 'select' === $type ? self::options( isset( $field['options'] ) ? $field['options'] : array() ) : array();
-
-			$clean[ $key ] = array(
-				'key'      => $key,
-				'name'     => $name,
-				'type'     => $type,
-				'required' => ! empty( $field['required'] ),
-				'options'  => $options,
-				'default'  => self::sanitize_default( $type, isset( $field['default'] ) ? $field['default'] : '', $options ),
-			);
-		}
-
-		return $clean;
-	}
-
-	/**
 	 * Render a single form field.
 	 *
 	 * @param string $input_key Key used for the input name attribute.
@@ -192,7 +149,7 @@ class FieldHelpers {
 			return '' === $error ? array() : array( self::upload_error_message( $error, $name ) );
 		}
 
-		$value = isset( $_POST['openforms'][ $input_key ] ) ? wp_unslash( $_POST['openforms'][ $input_key ] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- WooCommerce add-to-cart is public; the value is sanitized by sanitize() before use.
+		$value = isset( $_POST['openforms'][ $input_key ] ) ? wp_unslash( $_POST['openforms'][ $input_key ] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Public form submissions are not nonce verified; the value is sanitized by sanitize() before use.
 		$value = is_string( $value ) ? $value : '';
 
 		if ( $required && '' === trim( $value ) ) {
@@ -403,30 +360,6 @@ class FieldHelpers {
 				file_put_contents( $path, $contents ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 			}
 		}
-	}
-
-	/**
-	 * Move the files uploaded for one product field into the private folder and
-	 * report a rejected upload with a notice.
-	 *
-	 * @param string $input_key Input name key.
-	 * @return array Stored file details (empty on failure).
-	 */
-	public static function save_files( string $input_key ): array {
-		$files = self::upload_files( 'openforms', $input_key );
-
-		if ( $files ) {
-			return $files;
-		}
-
-		// Nothing was submitted, or the upload was rejected. Report the latter.
-		$error = self::upload_error( 'openforms', $input_key );
-
-		if ( '' !== $error ) {
-			wc_add_notice( self::upload_error_message( $error, self::upload_name( 'openforms', $input_key ) ), 'error' );
-		}
-
-		return array();
 	}
 
 	/**
@@ -756,7 +689,7 @@ class FieldHelpers {
 	 * @return string
 	 */
 	private static function upload_throttle_key(): string {
-		if ( self::upload_throttle_limit() <= 0 || self::upload_throttle_window() <= 0 || current_user_can( 'manage_woocommerce' ) ) {
+		if ( self::upload_throttle_limit() <= 0 || self::upload_throttle_window() <= 0 || current_user_can( 'manage_options' ) || current_user_can( 'manage_woocommerce' ) ) {
 			return '';
 		}
 
@@ -772,7 +705,7 @@ class FieldHelpers {
 	 * @param string $input_key Input name key inside the group.
 	 * @return string
 	 */
-	private static function upload_name( string $group, string $input_key ): string {
+	public static function upload_name( string $group, string $input_key ): string {
 		$files = self::files( $group, $input_key );
 
 		return $files ? sanitize_file_name( $files[0]['name'] ) : '';

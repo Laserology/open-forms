@@ -4,10 +4,11 @@
  * item and displays them in the cart and checkout summaries.
  */
 
-namespace OpenForms\Services;
+namespace OpenFormsWooCommerce\Services;
 
 use OpenForms\DataHelpers;
 use OpenForms\FieldHelpers;
+use OpenFormsWooCommerce\ProductFields;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -40,12 +41,12 @@ class CartHandler {
 	private function fields_for( int $product_id, int $variation_id = 0 ): array {
 		$fields = array();
 
-		foreach ( FieldHelpers::for_post( $product_id ) as $key => $field ) {
+		foreach ( ProductFields::for_post( $product_id ) as $key => $field ) {
 			$fields[ $key ] = $field;
 		}
 
 		if ( $variation_id ) {
-			foreach ( FieldHelpers::for_post( $variation_id ) as $key => $field ) {
+			foreach ( ProductFields::for_post( $variation_id ) as $key => $field ) {
 				$fields[ $variation_id . '_' . $key ] = $field;
 			}
 		}
@@ -115,7 +116,7 @@ class CartHandler {
 
 		foreach ( $fields as $input_key => $field ) {
 			if ( 'file' === $field['type'] ) {
-				foreach ( FieldHelpers::save_files( $input_key ) as $file ) {
+				foreach ( $this->save_files( $input_key ) as $file ) {
 					$file['type']       = 'file';
 					$file['field_name'] = $field['name'];
 					$data[]             = $file;
@@ -141,6 +142,30 @@ class CartHandler {
 		}
 
 		return $cart_item_data;
+	}
+
+	/**
+	 * Move the files uploaded for one product field into the private folder and
+	 * report a rejected upload with a notice.
+	 *
+	 * @param string $input_key Input name key.
+	 * @return array Stored file details (empty on failure).
+	 */
+	private function save_files( string $input_key ): array {
+		$files = FieldHelpers::upload_files( 'openforms', $input_key );
+
+		if ( $files ) {
+			return $files;
+		}
+
+		// Nothing was submitted, or the upload was rejected. Report the latter.
+		$error = FieldHelpers::upload_error( 'openforms', $input_key );
+
+		if ( '' !== $error ) {
+			wc_add_notice( FieldHelpers::upload_error_message( $error, FieldHelpers::upload_name( 'openforms', $input_key ) ), 'error' );
+		}
+
+		return array();
 	}
 
 	/**

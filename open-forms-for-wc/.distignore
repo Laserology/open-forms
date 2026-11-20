@@ -1,10 +1,9 @@
-/.wordpress-org
+# Development files excluded from a WordPress.org build.
 /.git
 /.github
+/.wordpress-org
 /node_modules
-
 .gitattributes
 .distignore
 .gitignore
 deploy.sh
-icon-256x256.xcf

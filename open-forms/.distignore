@@ -1,0 +1,9 @@
+# Development files excluded from a WordPress.org build.
+/.git
+/.github
+/.wordpress-org
+/node_modules
+.gitattributes
+.distignore
+.gitignore
+deploy.sh

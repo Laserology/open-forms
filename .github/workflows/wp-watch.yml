@@ -23,7 +23,7 @@ jobs:
         id: diff
         run: |
           set -euo pipefail
-          tracked=$(sed -n 's/^Tested up to:[[:space:]]*//p' readme.txt | tr -d '[:space:]' | cut -d. -f1,2)
+          tracked=$(sed -n 's/^Tested up to:[[:space:]]*//p' open-forms/readme.txt | tr -d '[:space:]' | cut -d. -f1,2)
           latest=$(curl -fsSL https://api.wordpress.org/core/version-check/1.7/ | jq -r '.offers[0].current' | cut -d. -f1,2)
           echo "tracked=$tracked latest=$latest"
           echo "latest=$latest" >> "$GITHUB_OUTPUT"

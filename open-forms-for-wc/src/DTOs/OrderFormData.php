@@ -4,7 +4,7 @@
  * and a summary order note for every line item that carries form data.
  */
 
-namespace OpenForms\DTOs;
+namespace OpenFormsWooCommerce\DTOs;
 
 use OpenForms\DataHelpers;
 
@@ -44,7 +44,7 @@ class OrderFormData {
 
 		add_meta_box(
 			'openforms-order-attachments',
-			__( 'Form Attachments', 'open-forms' ),
+			__( 'Form Attachments', 'open-forms-for-wc' ),
 			array( $this, 'render_meta_box' ),
 			$screen,
 			'normal',
@@ -88,7 +88,7 @@ class OrderFormData {
 		}
 
 		if ( ! $rendered ) {
-			echo '<p>' . esc_html__( 'No form attachments for this order.', 'open-forms' ) . '</p>';
+			echo '<p>' . esc_html__( 'No form attachments for this order.', 'open-forms-for-wc' ) . '</p>';
 		}
 	}
 
@@ -118,7 +118,7 @@ class OrderFormData {
 			$order->add_order_note(
 				sprintf(
 					/* translators: 1: item name, 2: submitted field values separated by "; ". Order note added at checkout to summarize the form content of a line item. */
-					__( 'OpenForms: %1$s - %2$s', 'open-forms' ),
+					__( 'OpenForms: %1$s - %2$s', 'open-forms-for-wc' ),
 					$item->get_name(),
 					implode( '; ', $lines )
 				)
@@ -163,6 +163,6 @@ class OrderFormData {
 			return;
 		}
 
-		wp_enqueue_style( 'openforms-frontend', OPENFORMS_URL . 'assets/css/frontend.css', array(), OPENFORMS_VERSION );
+		wp_enqueue_style( 'openforms-wc-frontend', OPENFORMS_WC_URL . 'assets/css/frontend.css', array(), OPENFORMS_WC_VERSION );
 	}
 }
